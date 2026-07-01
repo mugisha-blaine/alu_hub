@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import 'home_screen.dart';
+import '../../navigation/main_navigation.dart';
 
 enum AccountRole { student, startup }
 
@@ -34,7 +34,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
-        builder: (context) => HomeScreen(
+        builder: (context) => MainNavigation(
           userName: widget.name,
           role: selectedRole == AccountRole.student ? 'Student' : 'Startup',
         ),
