@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/mock_opportunity.dart';
 import '../widgets/opportunity_card.dart';
+import 'opportunity_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userName;
@@ -149,11 +150,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   toggleBookmark(opportunity.id);
                 },
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '${opportunity.title} details will be added next.',
-                      ),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          OpportunityDetailsScreen(opportunity: opportunity),
                     ),
                   );
                 },

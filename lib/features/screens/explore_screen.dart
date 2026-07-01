@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/mock_opportunity.dart';
 import '../widgets/opportunity_card.dart';
+import 'opportunity_details_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -120,7 +121,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ...filteredOpportunities.map((opportunity) {
                 return OpportunityCard(
                   opportunity: opportunity,
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            OpportunityDetailsScreen(opportunity: opportunity),
+                      ),
+                    );
+                  },
                   onBookmarkTap: () {},
                 );
               }),
