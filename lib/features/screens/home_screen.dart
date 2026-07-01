@@ -1,35 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../data/mock_opportunity.dart';
-import '../widgets/opportunity_card.dart';
+import '../../providers/bookmark_provider.dart';
+import 'notifications_screen.dart';
 import 'opportunity_details_screen.dart';
+import '../widgets/opportunity_card.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerWidget {
   final String userName;
   final String role;
 
   const HomeScreen({super.key, required this.userName, required this.role});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bookmarkedIds = ref.watch(bookmarkProvider);
 
-class _HomeScreenState extends State<HomeScreen> {
-  final Set<String> bookmarkedOpportunityIds = {};
-
-  void toggleBookmark(String opportunityId) {
-    setState(() {
-      if (bookmarkedOpportunityIds.contains(opportunityId)) {
-        bookmarkedOpportunityIds.remove(opportunityId);
-      } else {
-        bookmarkedOpportunityIds.add(opportunityId);
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     final textColor = isDarkMode ? Colors.white : AppColors.darkText;
@@ -43,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            // Greeting and notification button
             Row(
               children: [
                 Expanded(
@@ -50,14 +39,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Hello, ${widget.userName} 👋',
+                        'Hello, $userName 👋',
                         style: TextStyle(
                           color: textColor,
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
+
                       const SizedBox(height: 5),
+
                       Text(
                         'Find your next ALU opportunity',
                         style: TextStyle(color: mutedTextColor, fontSize: 14),
@@ -67,29 +58,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
                 IconButton.filledTonal(
-                  onPressed: () {},
+                  tooltip: 'Notifications',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) {
+                          return const NotificationsScreen();
+                        },
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.notifications_none_rounded),
                 ),
               ],
             ),
 
-            const SizedBox(height: 22),
-
-            TextField(
-              readOnly: true,
-              onTap: () {
-                // The Explore page will handle searching.
-              },
-              decoration: InputDecoration(
-                hintText: 'Search internships and projects',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: const Icon(Icons.tune_rounded),
-                filled: true,
-                fillColor: searchColor,
-              ),
-            ),
-
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
 
             Container(
               padding: const EdgeInsets.all(20),
@@ -105,7 +90,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.white,
                     size: 34,
                   ),
+
                   SizedBox(height: 15),
+
                   Text(
                     'Build experience with ALU startups',
                     style: TextStyle(
@@ -114,7 +101,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
+
                   SizedBox(height: 8),
+
                   Text(
                     'Discover practical opportunities that match your skills and career interests.',
                     style: TextStyle(color: Colors.white70, height: 1.4),
@@ -125,36 +114,70 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 25),
 
+            // Recommended section heading
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Recommended for you',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
+                Expanded(
+                  child: Text(
+                    'Recommended for you',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-                TextButton(onPressed: () {}, child: const Text('View all')),
+
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Open the Explore tab to view all opportunities.',
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('View all'),
+                ),
               ],
             ),
 
             const SizedBox(height: 8),
 
+            // Display the first three opportunities
             ...mockOpportunities.take(3).map((opportunity) {
+              final isBookmarked = bookmarkedIds.contains(opportunity.id);
+
               return OpportunityCard(
                 opportunity: opportunity,
-                isBookmarked: bookmarkedOpportunityIds.contains(opportunity.id),
+                isBookmarked: isBookmarked,
                 onBookmarkTap: () {
-                  toggleBookmark(opportunity.id);
+                  ref
+                      .read(bookmarkProvider.notifier)
+                      .toggleBookmark(opportunity.id);
+
+                  final message = isBookmarked
+                      ? 'Opportunity removed from saved items'
+                      : 'Opportunity saved';
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      duration: const Duration(seconds: 1),
+                      content: Text(message),
+                    ),
+                  );
                 },
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          OpportunityDetailsScreen(opportunity: opportunity),
+                      builder: (context) {
+                        return OpportunityDetailsScreen(
+                          opportunity: opportunity,
+                        );
+                      },
                     ),
                   );
                 },
