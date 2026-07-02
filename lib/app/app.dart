@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
-import '../features/screens/onboarding_screen.dart';
+import '../features/screens/auth_gate.dart';
 import '../providers/theme_provider.dart';
 
 class AluHubApp extends ConsumerWidget {
@@ -18,7 +18,7 @@ class AluHubApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: selectedTheme,
-      home: const OnboardingScreen(),
+      home: const AuthGate(),
     );
   }
 }

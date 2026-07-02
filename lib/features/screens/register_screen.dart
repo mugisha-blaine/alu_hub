@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../core/constants/app_colors.dart';
+import 'login_screen.dart';
 import 'role_selection_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<RegisterScreen> createState() {
+    return _RegisterScreenState();
+  }
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
@@ -32,17 +35,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void continueRegistration() {
-    if (formKey.currentState!.validate()) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RoleSelectionScreen(
+    if (!formKey.currentState!.validate()) {
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return RoleSelectionScreen(
             name: nameController.text.trim(),
             email: emailController.text.trim(),
-          ),
-        ),
-      );
-    }
+            password: passwordController.text.trim(),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -94,6 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: nameController,
                   textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
                     hintText: 'Enter your full name',
                     prefixIcon: Icon(Icons.person_outline_rounded),
@@ -120,8 +129,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
-                    hintText: 'Enter your ALU email',
+                    hintText: 'Enter your email',
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (value) {
@@ -129,7 +139,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       return 'Please enter your email';
                     }
 
-                    if (!value.contains('@')) {
+                    if (!value.contains('@') || !value.contains('.')) {
                       return 'Please enter a valid email';
                     }
 
@@ -146,6 +156,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: passwordController,
                   obscureText: hidePassword,
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     hintText: 'Create a password',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -184,6 +195,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: confirmPasswordController,
                   obscureText: hideConfirmPassword,
+                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     hintText: 'Enter the password again',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -231,7 +243,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) {
+                              return const LoginScreen();
+                            },
+                          ),
+                        );
                       },
                       child: const Text('Sign in'),
                     ),

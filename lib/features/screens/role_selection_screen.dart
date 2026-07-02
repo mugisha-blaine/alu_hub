@@ -1,28 +1,35 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../navigation/main_navigation.dart';
+import '../../core/constants/app_colors.dart';
 
 enum AccountRole { student, startup }
 
 class RoleSelectionScreen extends StatefulWidget {
   final String name;
   final String email;
+  final String password;
 
   const RoleSelectionScreen({
     super.key,
     required this.name,
     required this.email,
+    required this.password,
   });
 
   @override
-  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+  State<RoleSelectionScreen> createState() {
+    return _RoleSelectionScreenState();
+  }
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   AccountRole? selectedRole;
+  bool isLoading = false;
 
-  void completeRegistration() {
+  Future<void> completeRegistration() async {
+    // The user must select Student or Startup.
     if (selectedRole == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your account type.')),
@@ -31,25 +38,164 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       return;
     }
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MainNavigation(
-          userName: widget.name,
-          role: selectedRole == AccountRole.student ? 'Student' : 'Startup',
+    setState(() {
+      isLoading = true;
+    });
+
+    User? createdUser;
+
+    try {
+      final String roleName = selectedRole == AccountRole.student
+          ? 'Student'
+          : 'Startup';
+
+      // Create the Firebase Authentication account.
+      final UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: widget.email.trim(),
+            password: widget.password,
+          );
+
+      createdUser = userCredential.user;
+
+      if (createdUser == null) {
+        throw Exception('Firebase could not create the user account.');
+      }
+
+      // Save the name in Firebase Authentication.
+      await createdUser.updateDisplayName(widget.name.trim());
+
+      // Save the complete user profile in Firestore.
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(createdUser.uid)
+          .set({
+            'uid': createdUser.uid,
+            'name': widget.name.trim(),
+            'email': widget.email.trim(),
+            'role': roleName,
+            'phone': '',
+            'location': '',
+            'studyYear': '',
+            'skills': <String>[],
+            'interests': <String>[],
+            'portfolioUrl': '',
+            'profileImageUrl': '',
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account created successfully.')),
+      );
+
+      // Return to the first screen.
+      // AuthGate will detect the signed-in user and open
+      // the correct Student or Startup interface.
+      Navigator.popUntil(context, (route) => route.isFirst);
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      String message;
+
+      if (error.code == 'email-already-in-use') {
+        message =
+            'An account already exists with this email. Please sign in instead.';
+      } else if (error.code == 'invalid-email') {
+        message = 'The email address is invalid.';
+      } else if (error.code == 'weak-password') {
+        message = 'The password is too weak. Use at least 6 characters.';
+      } else if (error.code == 'operation-not-allowed') {
+        message = 'Email and password registration is not enabled in Firebase.';
+      } else if (error.code == 'network-request-failed') {
+        message = 'Check your internet connection and try again.';
+      } else if (error.code == 'too-many-requests') {
+        message = 'Too many attempts. Please wait and try again.';
+      } else {
+        message = 'Firebase error: ${error.code}. ${error.message ?? ''}';
+      }
+
+      debugPrint('Firebase Auth error code: ${error.code}');
+
+      debugPrint('Firebase Auth error message: ${error.message}');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
+      );
+    } on FirebaseException catch (error) {
+      // The Firebase Authentication account may have been
+      // created even when saving the Firestore profile failed.
+      // Delete it so the user can register again.
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (deleteError) {
+          debugPrint('Could not delete incomplete user: $deleteError');
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      debugPrint('Firestore error code: ${error.code}');
+
+      debugPrint('Firestore error message: ${error.message}');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Profile saving failed: '
+            '${error.code}. ${error.message ?? ''}',
+          ),
+          duration: const Duration(seconds: 5),
         ),
-      ),
-      (route) => false,
-    );
+      );
+    } catch (error) {
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (deleteError) {
+          debugPrint('Could not delete incomplete user: $deleteError');
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      debugPrint('Unexpected registration error: $error');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unexpected error: $error'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    final textColor = isDarkMode ? Colors.white : AppColors.darkText;
+    final Color textColor = isDarkMode ? Colors.white : AppColors.darkText;
 
-    final mutedTextColor = isDarkMode ? Colors.white70 : AppColors.mutedText;
+    final Color mutedTextColor = isDarkMode
+        ? Colors.white70
+        : AppColors.mutedText;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Choose Your Role')),
@@ -85,11 +231,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     'Discover internships, projects, and practical experience.',
                 icon: Icons.school_outlined,
                 selected: selectedRole == AccountRole.student,
-                onTap: () {
-                  setState(() {
-                    selectedRole = AccountRole.student;
-                  });
-                },
+                onTap: isLoading
+                    ? null
+                    : () {
+                        setState(() {
+                          selectedRole = AccountRole.student;
+                        });
+                      },
               ),
 
               const SizedBox(height: 16),
@@ -100,18 +248,29 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                     'Create a startup profile, post opportunities, and manage applicants.',
                 icon: Icons.business_center_outlined,
                 selected: selectedRole == AccountRole.startup,
-                onTap: () {
-                  setState(() {
-                    selectedRole = AccountRole.startup;
-                  });
-                },
+                onTap: isLoading
+                    ? null
+                    : () {
+                        setState(() {
+                          selectedRole = AccountRole.startup;
+                        });
+                      },
               ),
 
               const Spacer(),
 
               FilledButton(
-                onPressed: completeRegistration,
-                child: const Text('Complete Registration'),
+                onPressed: isLoading ? null : completeRegistration,
+                child: isLoading
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('Complete Registration'),
               ),
             ],
           ),
@@ -126,7 +285,7 @@ class _RoleCard extends StatelessWidget {
   final String description;
   final IconData icon;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _RoleCard({
     required this.title,
@@ -138,13 +297,17 @@ class _RoleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    final cardColor = isDarkMode ? AppColors.darkCard : AppColors.lightCard;
+    final Color cardColor = isDarkMode
+        ? AppColors.darkCard
+        : AppColors.lightCard;
 
-    final textColor = isDarkMode ? Colors.white : AppColors.darkText;
+    final Color textColor = isDarkMode ? Colors.white : AppColors.darkText;
 
-    final mutedTextColor = isDarkMode ? Colors.white70 : AppColors.mutedText;
+    final Color mutedTextColor = isDarkMode
+        ? Colors.white70
+        : AppColors.mutedText;
 
     return Material(
       color: cardColor,

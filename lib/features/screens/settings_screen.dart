@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../providers/theme_provider.dart';
-import 'onboarding_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -95,16 +95,16 @@ class SettingsScreen extends ConsumerWidget {
                         child: const Text('Cancel'),
                       ),
                       FilledButton(
-                        onPressed: () {
-                          Navigator.pushAndRemoveUntil(
+                        onPressed: () async {
+                          await FirebaseAuth.instance.signOut();
+
+                          if (!context.mounted) {
+                            return;
+                          }
+
+                          Navigator.of(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) {
-                                return const OnboardingScreen();
-                              },
-                            ),
-                            (route) => false,
-                          );
+                          ).popUntil((route) => route.isFirst);
                         },
                         child: const Text('Sign Out'),
                       ),
