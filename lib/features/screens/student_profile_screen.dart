@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import 'saved_opportunities_screen.dart';
 import 'settings_screen.dart';
+import 'personal_information_screen.dart';
+import 'skills_interests_screen.dart';
 
 class StudentProfileScreen extends StatelessWidget {
   final String userName;
@@ -135,32 +137,32 @@ class StudentProfileScreen extends StatelessWidget {
                       cardColor: cardColor,
                       textColor: textColor,
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Personal information screen will be connected later.',
-                            ),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) {
+                              return const PersonalInformationScreen();
+                            },
                           ),
                         );
                       },
                     ),
-
                     _ProfileMenuTile(
                       icon: Icons.school_outlined,
-                      title: 'Skills and Portfolio',
+                      title: 'Skills and Interests',
                       cardColor: cardColor,
                       textColor: textColor,
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Skills and portfolio screen will be connected later.',
-                            ),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) {
+                              return const SkillsInterestsScreen();
+                            },
                           ),
                         );
                       },
                     ),
-
                     _ProfileMenuTile(
                       icon: Icons.bookmark_border_rounded,
                       title: 'Saved Opportunities',
