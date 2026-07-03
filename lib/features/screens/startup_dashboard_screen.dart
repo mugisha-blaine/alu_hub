@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import 'applicants_screen.dart';
 import 'create_opportunity_screen.dart';
 import 'manage_opportunities_screen.dart';
+import 'view_applicants.dart';
 
 class StartupDashboardScreen extends StatelessWidget {
   final String startupName;
@@ -105,7 +106,7 @@ class StartupDashboardScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) {
-                      return const CreateOpportunityScreen();
+                      return CreateOpportunityScreen(startupName: startupName);
                     },
                   ),
                 );
@@ -135,7 +136,7 @@ class StartupDashboardScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) {
-                      return const ApplicantsScreen();
+                      return const ViewApplicantsScreen();
                     },
                   ),
                 );

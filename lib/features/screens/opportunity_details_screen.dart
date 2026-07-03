@@ -204,7 +204,9 @@ class OpportunityDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          opportunity.deadline,
+                          '${opportunity.deadline.day}/'
+                          '${opportunity.deadline.month}/'
+                          '${opportunity.deadline.year}',
                           style: TextStyle(
                             color: mutedTextColor,
                             fontWeight: FontWeight.w700,

@@ -1,28 +1,76 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class BookmarkNotifier extends Notifier<Set<String>> {
-  @override
-  Set<String> build() {
-    return {};
-  }
+final authStateProvider = StreamProvider<User?>((ref) {
+  return FirebaseAuth.instance.authStateChanges();
+});
 
-  void toggleBookmark(String opportunityId) {
-    final updatedBookmarks = Set<String>.from(state);
+final bookmarkProvider = StreamProvider<Set<String>>((ref) {
+  final authState = ref.watch(authStateProvider);
 
-    if (updatedBookmarks.contains(opportunityId)) {
-      updatedBookmarks.remove(opportunityId);
-    } else {
-      updatedBookmarks.add(opportunityId);
+  return authState.when(
+    loading: () {
+      return Stream.value(<String>{});
+    },
+    error: (error, stackTrace) {
+      return Stream.value(<String>{});
+    },
+    data: (user) {
+      if (user == null) {
+        return Stream.value(<String>{});
+      }
+
+      return FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('bookmarks')
+          .snapshots()
+          .map((snapshot) {
+            return snapshot.docs.map((document) => document.id).toSet();
+          });
+    },
+  );
+});
+
+final bookmarkRepositoryProvider = Provider<BookmarkRepository>((ref) {
+  return BookmarkRepository();
+});
+
+class BookmarkRepository {
+  final FirebaseAuth auth = FirebaseAuth.instance;
+
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+  void toggleBookmark({
+    required String opportunityId,
+    required bool isCurrentlyBookmarked,
+  }) {
+    final user = auth.currentUser;
+
+    if (user == null) {
+      return;
     }
 
-    state = updatedBookmarks;
-  }
+    final bookmarkDocument = firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('bookmarks')
+        .doc(opportunityId);
 
-  bool isBookmarked(String opportunityId) {
-    return state.contains(opportunityId);
+    if (isCurrentlyBookmarked) {
+      bookmarkDocument.delete().catchError((error) {
+        print('Unable to remove bookmark: $error');
+      });
+    } else {
+      bookmarkDocument
+          .set({
+            'opportunityId': opportunityId,
+            'createdAt': FieldValue.serverTimestamp(),
+          })
+          .catchError((error) {
+            print('Unable to save bookmark: $error');
+          });
+    }
   }
 }
-
-final bookmarkProvider = NotifierProvider<BookmarkNotifier, Set<String>>(
-  BookmarkNotifier.new,
-);

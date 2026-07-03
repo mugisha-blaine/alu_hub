@@ -1,19 +1,25 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/application.dart';
 import '../../models/opportunity.dart';
+import '../../providers/application_provider.dart';
 import 'application_success_screen.dart';
 
-class ApplicationFormScreen extends StatefulWidget {
+class ApplicationFormScreen extends ConsumerStatefulWidget {
   final Opportunity opportunity;
 
   const ApplicationFormScreen({super.key, required this.opportunity});
 
   @override
-  State<ApplicationFormScreen> createState() => _ApplicationFormScreenState();
+  ConsumerState<ApplicationFormScreen> createState() {
+    return _ApplicationFormScreenState();
+  }
 }
 
-class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
+class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
   final formKey = GlobalKey<FormState>();
 
   final fullNameController = TextEditingController();
@@ -27,6 +33,18 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
   final List<String> studyYears = ['Year 1', 'Year 2', 'Year 3', 'Year 4'];
 
   bool agreedToTerms = false;
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    fullNameController.text = user?.displayName ?? '';
+
+    emailController.text = user?.email ?? '';
+  }
 
   @override
   void dispose() {
@@ -39,30 +57,102 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
     super.dispose();
   }
 
+  void showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void submitApplication() {
     if (!formKey.currentState!.validate()) {
       return;
     }
 
     if (!agreedToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please confirm that your information is correct.'),
-        ),
-      );
-
+      showMessage('Please confirm that your information is correct.');
       return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ApplicationSuccessScreen(
-          opportunityTitle: widget.opportunity.title,
-          startupName: widget.opportunity.startupName,
-        ),
-      ),
-    );
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      showMessage('You must sign in before applying.');
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    final repository = ref.read(applicationRepositoryProvider);
+
+    repository
+        .hasAlreadyApplied(
+          studentId: user.uid,
+          opportunityId: widget.opportunity.id,
+        )
+        .then((alreadyApplied) {
+          if (alreadyApplied) {
+            throw Exception('You have already applied for this opportunity.');
+          }
+
+          final application = ApplicationModel(
+            id: '',
+            opportunityId: widget.opportunity.id,
+            opportunityTitle: widget.opportunity.title,
+            startupId: widget.opportunity.startupId,
+            startupName: widget.opportunity.startupName,
+            studentId: user.uid,
+            studentName: fullNameController.text.trim(),
+            studentEmail: emailController.text.trim(),
+            phone: phoneController.text.trim(),
+            studyYear: selectedStudyYear,
+            portfolioUrl: portfolioController.text.trim(),
+            motivation: motivationController.text.trim(),
+            status: 'Submitted',
+          );
+
+          return repository.submitApplication(application);
+        })
+        .then((_) {
+          if (!mounted) {
+            return;
+          }
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) {
+                return ApplicationSuccessScreen(
+                  opportunityTitle: widget.opportunity.title,
+                  startupName: widget.opportunity.startupName,
+                );
+              },
+            ),
+          );
+        })
+        .catchError((error) {
+          if (!mounted) {
+            return;
+          }
+
+          final message = error.toString().contains('already applied')
+              ? 'You have already applied for this opportunity.'
+              : 'Unable to submit application: $error';
+
+          showMessage(message);
+        })
+        .whenComplete(() {
+          if (mounted) {
+            setState(() {
+              isLoading = false;
+            });
+          }
+        });
   }
 
   @override
@@ -105,18 +195,13 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
 
               TextFormField(
                 controller: fullNameController,
+                enabled: !isLoading,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   hintText: 'Enter your full name',
                   prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your full name';
-                  }
-
-                  return null;
-                },
+                validator: requiredValidator,
               ),
 
               const SizedBox(height: 18),
@@ -127,6 +212,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
 
               TextFormField(
                 controller: emailController,
+                enabled: !isLoading,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
                   hintText: 'Enter your ALU email',
@@ -153,18 +239,13 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
 
               TextFormField(
                 controller: phoneController,
+                enabled: !isLoading,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
                   hintText: 'Enter your phone number',
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your phone number';
-                  }
-
-                  return null;
-                },
+                validator: requiredValidator,
               ),
 
               const SizedBox(height: 18),
@@ -174,20 +255,22 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
               const SizedBox(height: 8),
 
               DropdownButtonFormField<String>(
-                value: selectedStudyYear,
+                initialValue: selectedStudyYear,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.school_outlined),
                 ),
                 items: studyYears.map((year) {
                   return DropdownMenuItem(value: year, child: Text(year));
                 }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      selectedStudyYear = value;
-                    });
-                  }
-                },
+                onChanged: isLoading
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() {
+                            selectedStudyYear = value;
+                          });
+                        }
+                      },
               ),
 
               const SizedBox(height: 18),
@@ -202,6 +285,7 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
 
               TextFormField(
                 controller: portfolioController,
+                enabled: !isLoading,
                 keyboardType: TextInputType.url,
                 decoration: const InputDecoration(
                   hintText: 'GitHub, LinkedIn, or portfolio link',
@@ -220,12 +304,12 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
 
               TextFormField(
                 controller: motivationController,
+                enabled: !isLoading,
                 maxLines: 6,
                 maxLength: 500,
                 decoration: const InputDecoration(
                   hintText:
                       'Explain why you are interested in this opportunity...',
-                  alignLabelWithHint: true,
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -240,8 +324,6 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
                 },
               ),
 
-              const SizedBox(height: 8),
-
               CheckboxListTile(
                 value: agreedToTerms,
                 contentPadding: EdgeInsets.zero,
@@ -250,26 +332,43 @@ class _ApplicationFormScreenState extends State<ApplicationFormScreen> {
                   'I confirm that the information provided is correct.',
                   style: TextStyle(color: textColor, fontSize: 14),
                 ),
-                onChanged: (value) {
-                  setState(() {
-                    agreedToTerms = value ?? false;
-                  });
-                },
+                onChanged: isLoading
+                    ? null
+                    : (value) {
+                        setState(() {
+                          agreedToTerms = value ?? false;
+                        });
+                      },
               ),
 
               const SizedBox(height: 18),
 
               FilledButton(
-                onPressed: submitApplication,
-                child: const Text('Submit Application'),
+                onPressed: isLoading ? null : submitApplication,
+                child: isLoading
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Submit Application'),
               ),
-
-              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     );
+  }
+
+  static String? requiredValidator(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'This field is required';
+    }
+
+    return null;
   }
 }
 
@@ -292,7 +391,6 @@ class _FieldLabel extends StatelessWidget {
           label,
           style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
         ),
-
         if (optional) ...[
           const SizedBox(width: 5),
           const Text(

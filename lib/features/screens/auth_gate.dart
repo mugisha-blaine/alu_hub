@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../navigation/main_navigation.dart';
-import 'onboarding_screen.dart';
+import 'login_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -22,7 +22,7 @@ class AuthGate extends StatelessWidget {
 
         // No authenticated user means show onboarding.
         if (user == null) {
-          return const OnboardingScreen();
+          return const LoginScreen();
         }
 
         // Read the signed-in user's profile from Firestore.

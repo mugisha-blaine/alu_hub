@@ -35,14 +35,14 @@ class _MainNavigationState extends State<MainNavigation> {
       HomeScreen(userName: widget.userName, role: widget.role),
       const ExploreScreen(),
       const MyApplicationsScreen(),
-      StudentProfileScreen(userName: widget.userName),
+      StudentProfileScreen(),
     ];
 
     final startupPages = [
       StartupDashboardScreen(startupName: widget.userName),
       const ManageOpportunitiesScreen(),
       const ApplicantsScreen(),
-      StartupProfileScreen(startupName: widget.userName),
+      const StartupProfileScreen(),
     ];
 
     final pages = isStartup ? startupPages : studentPages;

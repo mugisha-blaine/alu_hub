@@ -1,262 +1,425 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
-import 'saved_opportunities_screen.dart';
-import 'settings_screen.dart';
-import 'personal_information_screen.dart';
-import 'skills_interests_screen.dart';
+import 'login_screen.dart';
 
-class StudentProfileScreen extends StatelessWidget {
-  final String userName;
+class StudentProfileScreen extends StatefulWidget {
+  const StudentProfileScreen({super.key});
 
-  const StudentProfileScreen({super.key, required this.userName});
+  @override
+  State<StudentProfileScreen> createState() {
+    return _StudentProfileScreenState();
+  }
+}
+
+class _StudentProfileScreenState extends State<StudentProfileScreen> {
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final phoneController = TextEditingController();
+  final bioController = TextEditingController();
+
+  bool isLoading = true;
+  bool isSaving = false;
+
+  String role = 'Student';
+
+  @override
+  void initState() {
+    super.initState();
+
+    loadProfile();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    bioController.dispose();
+
+    super.dispose();
+  }
+
+  void showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void loadProfile() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      setState(() {
+        isLoading = false;
+      });
+
+      showMessage('Please sign in again.');
+      return;
+    }
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .then((document) {
+          if (!mounted) {
+            return;
+          }
+
+          final data = document.data();
+
+          setState(() {
+            nameController.text =
+                data?['name']?.toString() ?? user.displayName ?? '';
+
+            emailController.text =
+                data?['email']?.toString() ?? user.email ?? '';
+
+            phoneController.text = data?['phone']?.toString() ?? '';
+
+            bioController.text = data?['bio']?.toString() ?? '';
+
+            role = data?['role']?.toString() ?? 'Student';
+
+            isLoading = false;
+          });
+        })
+        .catchError((error) {
+          if (!mounted) {
+            return;
+          }
+
+          setState(() {
+            isLoading = false;
+          });
+
+          showMessage('Unable to load profile: $error');
+        });
+  }
+
+  void saveProfile() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      showMessage('Please sign in again.');
+      return;
+    }
+
+    final name = nameController.text.trim();
+    final phone = phoneController.text.trim();
+    final bio = bioController.text.trim();
+
+    if (name.isEmpty) {
+      showMessage('Please enter your full name.');
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+    });
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .update({
+          'name': name,
+          'phone': phone,
+          'bio': bio,
+          'updatedAt': FieldValue.serverTimestamp(),
+        })
+        .then((_) {
+          return user.updateDisplayName(name);
+        })
+        .then((_) {
+          if (!mounted) {
+            return;
+          }
+
+          setState(() {});
+
+          showMessage('Profile updated successfully.');
+        })
+        .catchError((error) {
+          showMessage('Unable to update profile: $error');
+        })
+        .whenComplete(() {
+          if (mounted) {
+            setState(() {
+              isSaving = false;
+            });
+          }
+        });
+  }
+
+  void confirmSignOut() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Sign Out'),
+          content: const Text('Are you sure you want to sign out?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                signOut();
+              },
+              child: const Text('Sign Out'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void signOut() {
+    FirebaseAuth.instance
+        .signOut()
+        .then((_) {
+          if (!mounted) {
+            return;
+          }
+
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) {
+                return const LoginScreen();
+              },
+            ),
+            (route) => false,
+          );
+        })
+        .catchError((error) {
+          showMessage('Unable to sign out: $error');
+        });
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    final backgroundColor = isDarkMode
-        ? AppColors.darkBackground
-        : AppColors.lightBackground;
+    final textColor = isDarkMode ? Colors.white : AppColors.darkText;
+
+    final mutedTextColor = isDarkMode ? Colors.white70 : AppColors.mutedText;
 
     final cardColor = isDarkMode ? AppColors.darkCard : Colors.white;
 
-    final textColor = isDarkMode ? Colors.white : AppColors.darkText;
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: const Text('Profile'),
+        automaticallyImplyLeading: false,
+      ),
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.all(20),
           children: [
-            // Blue profile header
             Container(
-              height: 190,
-              width: double.infinity,
-              color: AppColors.primaryBlue,
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(20, 24, 20, 0),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: Text(
-                    'Profile',
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: isDarkMode
+                      ? Colors.white10
+                      : Colors.black.withOpacity(0.05),
+                ),
+              ),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 48,
+                    backgroundColor: AppColors.primaryBlue.withOpacity(0.12),
+                    child: Text(
+                      nameController.text.isNotEmpty
+                          ? nameController.text[0].toUpperCase()
+                          : 'S',
+                      style: const TextStyle(
+                        color: AppColors.primaryBlue,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  Text(
+                    nameController.text.isEmpty
+                        ? 'ALU Student'
+                        : nameController.text,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 25,
+                      color: textColor,
+                      fontSize: 22,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                ),
-              ),
-            ),
 
-            // Profile information card
-            Transform.translate(
-              offset: const Offset(0, -65),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                  const SizedBox(height: 5),
+
+                  Text(
+                    emailController.text,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: mutedTextColor),
                   ),
-                  child: Column(
-                    children: [
-                      const CircleAvatar(
-                        radius: 48,
-                        backgroundColor: AppColors.accentBlue,
-                        child: Icon(
-                          Icons.person_rounded,
-                          color: Colors.white,
-                          size: 55,
-                        ),
+
+                  const SizedBox(height: 12),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryBlue.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      role,
+                      style: const TextStyle(
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.w800,
                       ),
-
-                      const SizedBox(height: 14),
-
-                      Text(
-                        userName,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 23,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      const Text(
-                        'student@alustudent.com',
-                        style: TextStyle(color: AppColors.mutedText),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryBlue.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'ALU Student',
-                          style: TextStyle(
-                            color: AppColors.primaryBlue,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
 
-            // Profile menu options
-            Transform.translate(
-              offset: const Offset(0, -45),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    _ProfileMenuTile(
-                      icon: Icons.person_outline_rounded,
-                      title: 'Personal Information',
-                      cardColor: cardColor,
-                      textColor: textColor,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) {
-                              return const PersonalInformationScreen();
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                    _ProfileMenuTile(
-                      icon: Icons.school_outlined,
-                      title: 'Skills and Interests',
-                      cardColor: cardColor,
-                      textColor: textColor,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) {
-                              return const SkillsInterestsScreen();
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                    _ProfileMenuTile(
-                      icon: Icons.bookmark_border_rounded,
-                      title: 'Saved Opportunities',
-                      cardColor: cardColor,
-                      textColor: textColor,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) {
-                              return const SavedOpportunitiesScreen();
-                            },
-                          ),
-                        );
-                      },
-                    ),
+            const SizedBox(height: 28),
 
-                    _ProfileMenuTile(
-                      icon: Icons.settings_outlined,
-                      title: 'Settings',
-                      cardColor: cardColor,
-                      textColor: textColor,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) {
-                              return const SettingsScreen();
-                            },
-                          ),
-                        );
-                      },
-                    ),
-
-                    _ProfileMenuTile(
-                      icon: Icons.help_outline_rounded,
-                      title: 'Help and Support',
-                      cardColor: cardColor,
-                      textColor: textColor,
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Help and support will be added later.',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+            Text(
+              'Personal Information',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
               ),
             ),
+
+            const SizedBox(height: 18),
+
+            Text(
+              'Full name',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+            ),
+
+            const SizedBox(height: 8),
+
+            TextField(
+              controller: nameController,
+              enabled: !isSaving,
+              textCapitalization: TextCapitalization.words,
+              onChanged: (_) {
+                setState(() {});
+              },
+              decoration: const InputDecoration(
+                hintText: 'Enter your full name',
+                prefixIcon: Icon(Icons.person_outline_rounded),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            Text(
+              'Email',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+            ),
+
+            const SizedBox(height: 8),
+
+            TextField(
+              controller: emailController,
+              enabled: false,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            Text(
+              'Phone number',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+            ),
+
+            const SizedBox(height: 8),
+
+            TextField(
+              controller: phoneController,
+              enabled: !isSaving,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                hintText: 'Enter your phone number',
+                prefixIcon: Icon(Icons.phone_outlined),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            Text(
+              'About you',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+            ),
+
+            const SizedBox(height: 8),
+
+            TextField(
+              controller: bioController,
+              enabled: !isSaving,
+              maxLines: 4,
+              maxLength: 250,
+              decoration: const InputDecoration(
+                hintText: 'Write a short description about yourself',
+                prefixIcon: Icon(Icons.info_outline_rounded),
+              ),
+            ),
+
+            const SizedBox(height: 22),
+
+            FilledButton.icon(
+              onPressed: isSaving ? null : saveProfile,
+              icon: isSaving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: Text(isSaving ? 'Saving...' : 'Save Changes'),
+            ),
+
+            const SizedBox(height: 14),
+
+            OutlinedButton.icon(
+              onPressed: isSaving ? null : confirmSignOut,
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Sign Out'),
+            ),
+
+            const SizedBox(height: 30),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileMenuTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Color cardColor;
-  final Color textColor;
-  final VoidCallback? onTap;
-
-  const _ProfileMenuTile({
-    required this.icon,
-    required this.title,
-    required this.cardColor,
-    required this.textColor,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 11),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon, color: AppColors.primaryBlue),
-        title: Text(
-          title,
-          style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios_rounded,
-          size: 15,
-          color: AppColors.mutedText,
         ),
       ),
     );

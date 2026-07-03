@@ -1,8 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../navigation/main_navigation.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,148 +16,199 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // This key controls and validates the login form.
   final formKey = GlobalKey<FormState>();
 
-  // These controllers collect the email and password.
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  // Controls whether the password is visible.
   bool hidePassword = true;
-
-  // Prevents the button from being pressed twice while signing in.
   bool isLoading = false;
 
   @override
   void dispose() {
-    // Controllers should be removed when the screen closes.
     emailController.dispose();
     passwordController.dispose();
 
     super.dispose();
   }
 
-  Future<void> signIn() async {
+  void showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
+    );
+  }
+
+  void signIn() {
+    debugPrint('Sign In button clicked');
+
     if (!formKey.currentState!.validate()) {
       return;
     }
+
+    FocusScope.of(context).unfocus();
 
     setState(() {
       isLoading = true;
     });
 
-    try {
-      await FirebaseAuth.instance
-          .signInWithEmailAndPassword(
-            email: emailController.text.trim(),
-            password: passwordController.text.trim(),
-          )
-          .timeout(const Duration(seconds: 20));
+    FirebaseAuth.instance
+        .signInWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text,
+        )
+        .then((userCredential) {
+          final user = userCredential.user;
 
-      if (!mounted) {
-        return;
-      }
+          if (user == null) {
+            throw Exception('Firebase could not find the signed-in user.');
+          }
 
-      // Return to the first route.
-      // AuthGate will detect the signed-in user
-      // and open the correct dashboard.
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } on TimeoutException {
-      if (!mounted) {
-        return;
-      }
+          debugPrint('Authentication successful');
+          debugPrint('User UID: ${user.uid}');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Firebase took too long to respond. Check your internet connection.',
-          ),
-        ),
-      );
-    } on FirebaseAuthException catch (error) {
-      if (!mounted) {
-        return;
-      }
+          return FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get()
+              .then((userDocument) {
+                return {'user': user, 'document': userDocument};
+              });
+        })
+        .then((result) {
+          final user = result['user'] as User;
 
-      String message = 'Sign in failed. Please try again.';
+          final userDocument =
+              result['document'] as DocumentSnapshot<Map<String, dynamic>>;
 
-      if (error.code == 'invalid-credential' ||
-          error.code == 'wrong-password' ||
-          error.code == 'user-not-found') {
-        message = 'The email or password is incorrect.';
-      } else if (error.code == 'invalid-email') {
-        message = 'Please enter a valid email address.';
-      } else if (error.code == 'user-disabled') {
-        message = 'This account has been disabled.';
-      } else if (error.code == 'too-many-requests') {
-        message = 'Too many attempts. Please wait and try again.';
-      } else if (error.code == 'network-request-failed') {
-        message = 'Check your internet connection.';
-      } else {
-        message = 'Firebase error: ${error.code}. ${error.message ?? ''}';
-      }
+          if (!userDocument.exists) {
+            debugPrint('Firestore profile does not exist');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 5)),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
+            FirebaseAuth.instance.signOut();
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Unexpected error: $error')));
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
+            showMessage(
+              'Your account exists, but your profile is missing from Firestore. Register again.',
+            );
+
+            return;
+          }
+
+          final userData = userDocument.data();
+
+          final userName =
+              userData?['name']?.toString() ??
+              user.displayName ??
+              user.email?.split('@').first ??
+              'ALU User';
+
+          final role = userData?['role']?.toString() ?? 'Student';
+
+          debugPrint('Profile found');
+          debugPrint('Name: $userName');
+          debugPrint('Role: $role');
+
+          if (!mounted) {
+            return;
+          }
+
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) {
+                return MainNavigation(userName: userName, role: role);
+              },
+            ),
+            (route) => false,
+          );
+        })
+        .catchError((error) {
+          debugPrint('Login error: $error');
+
+          if (error is FirebaseAuthException) {
+            String message = 'Sign in failed. Please try again.';
+
+            if (error.code == 'invalid-credential' ||
+                error.code == 'wrong-password' ||
+                error.code == 'user-not-found') {
+              message = 'The email or password is incorrect.';
+            } else if (error.code == 'invalid-email') {
+              message = 'Please enter a valid email address.';
+            } else if (error.code == 'user-disabled') {
+              message = 'This account has been disabled.';
+            } else if (error.code == 'network-request-failed') {
+              message = 'Check your internet connection.';
+            } else if (error.code == 'too-many-requests') {
+              message = 'Too many attempts. Try again later.';
+            } else {
+              message = 'Authentication error: ${error.code}.';
+            }
+
+            showMessage(message);
+            return;
+          }
+
+          if (error is FirebaseException) {
+            showMessage(
+              'Firebase error: ${error.code}. '
+              '${error.message ?? ''}',
+            );
+            return;
+          }
+
+          showMessage('An unexpected error occurred: $error');
+        })
+        .whenComplete(() {
+          if (mounted) {
+            setState(() {
+              isLoading = false;
+            });
+          }
         });
-      }
-    }
   }
 
-  Future<void> resetPassword() async {
+  void resetPassword() {
     final email = emailController.text.trim();
 
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter your email address first.')),
-      );
-
+      showMessage('Enter your email address first.');
       return;
     }
 
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A password reset email has been sent.')),
-      );
-    } on FirebaseAuthException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      String message = 'Unable to send the password reset email.';
-
-      if (error.code == 'invalid-email') {
-        message = 'Please enter a valid email address.';
-      } else if (error.code == 'user-not-found') {
-        message = 'No account was found with this email.';
-      } else if (error.code == 'network-request-failed') {
-        message = 'Check your internet connection.';
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+    if (!email.contains('@') || !email.contains('.')) {
+      showMessage('Please enter a valid email address.');
+      return;
     }
+
+    FocusScope.of(context).unfocus();
+
+    FirebaseAuth.instance
+        .sendPasswordResetEmail(email: email)
+        .then((_) {
+          showMessage('A password-reset link has been sent to your email.');
+        })
+        .catchError((error) {
+          debugPrint('Password reset error: $error');
+
+          if (error is FirebaseAuthException) {
+            String message = 'The password-reset email could not be sent.';
+
+            if (error.code == 'invalid-email') {
+              message = 'Please enter a valid email address.';
+            } else if (error.code == 'network-request-failed') {
+              message = 'Check your internet connection.';
+            } else if (error.code == 'too-many-requests') {
+              message = 'Too many requests. Try again later.';
+            }
+
+            showMessage(message);
+            return;
+          }
+
+          showMessage('Unable to send the password-reset email.');
+        });
   }
 
   @override
@@ -209,6 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 TextFormField(
                   controller: emailController,
+                  enabled: !isLoading,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
@@ -216,11 +269,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
+                    final email = value?.trim() ?? '';
+
+                    if (email.isEmpty) {
                       return 'Please enter your email';
                     }
 
-                    if (!value.contains('@') || !value.contains('.')) {
+                    if (!email.contains('@') || !email.contains('.')) {
                       return 'Please enter a valid email';
                     }
 
@@ -242,6 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 TextFormField(
                   controller: passwordController,
+                  enabled: !isLoading,
                   obscureText: hidePassword,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) {
@@ -253,12 +309,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     hintText: 'Enter your password',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
-                      tooltip: hidePassword ? 'Show password' : 'Hide password',
-                      onPressed: () {
-                        setState(() {
-                          hidePassword = !hidePassword;
-                        });
-                      },
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              setState(() {
+                                hidePassword = !hidePassword;
+                              });
+                            },
                       icon: Icon(
                         hidePassword
                             ? Icons.visibility_off_outlined
@@ -310,10 +367,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'Do not have an account?',
-                      style: TextStyle(color: mutedTextColor),
+                    Flexible(
+                      child: Text(
+                        'Do not have an account?',
+                        style: TextStyle(color: mutedTextColor),
+                      ),
                     ),
+
                     TextButton(
                       onPressed: isLoading
                           ? null
