@@ -5,7 +5,7 @@ import '../features/screens/my_app_screen.dart';
 import '../features/screens/explore_screen.dart';
 import '../features/screens/home_screen.dart';
 import '../features/screens/student_profile_screen.dart';
-import '../features/screens/applicants_screen.dart';
+import '../features/screens/view_applicants.dart';
 import '../features/screens/manage_opportunities_screen.dart';
 import '../features/screens/startup_dashboard_screen.dart';
 import '../features/screens/startup_profile_screen.dart';
@@ -41,7 +41,7 @@ class _MainNavigationState extends State<MainNavigation> {
     final startupPages = [
       StartupDashboardScreen(startupName: widget.userName),
       const ManageOpportunitiesScreen(),
-      const ApplicantsScreen(),
+      const ViewApplicantsScreen(),
       const StartupProfileScreen(),
     ];
 

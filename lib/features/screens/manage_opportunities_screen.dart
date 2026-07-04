@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/opportunity.dart';
 import '../../providers/opportunity_provider.dart';
+import 'edit_opportunity_screen.dart';
 
 class ManageOpportunitiesScreen extends ConsumerWidget {
   const ManageOpportunitiesScreen({super.key});
@@ -164,9 +165,15 @@ class ManageOpportunitiesScreen extends ConsumerWidget {
                     );
                   },
                   onEdit: () {
-                    showMessage(
+                    Navigator.push(
                       context,
-                      'The edit screen will be connected next.',
+                      MaterialPageRoute(
+                        builder: (context) {
+                          return EditOpportunityScreen(
+                            opportunity: opportunity,
+                          );
+                        },
+                      ),
                     );
                   },
                 );

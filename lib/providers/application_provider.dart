@@ -1,12 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/application.dart';
-import '../repositories/application_repository.dart';
+import '../repositories/application_repo.dart';
 
 final applicationRepositoryProvider = Provider<ApplicationRepository>((ref) {
   return ApplicationRepository();
 });
 
+// Applications submitted by one student.
 final studentApplicationsProvider =
     StreamProvider.family<List<ApplicationModel>, String>((ref, studentId) {
       final repository = ref.watch(applicationRepositoryProvider);

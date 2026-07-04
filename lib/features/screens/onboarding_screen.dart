@@ -2,183 +2,204 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import 'login_screen.dart';
+import 'register_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
+
+  void openLogin(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return const LoginScreen();
+        },
+      ),
+    );
+  }
+
+  void openRegister(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return const RegisterScreen();
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    final backgroundColor = isDarkMode
-        ? AppColors.darkBackground
-        : AppColors.lightBackground;
-
-    final textColor = isDarkMode ? AppColors.lightText : AppColors.darkText;
+    final textColor = isDarkMode ? Colors.white : AppColors.darkText;
 
     final mutedTextColor = isDarkMode ? Colors.white70 : AppColors.mutedText;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Upper dark-blue design section
-            Expanded(
-              flex: 6,
-              child: Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const Spacer(),
+
+              Container(
+                height: 150,
+                width: 150,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.rocket_launch_rounded,
                   color: AppColors.primaryBlue,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(36),
-                    bottomRight: Radius.circular(36),
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    // Decorative circle
-                    Positioned(
-                      top: 30,
-                      right: -50,
-                      child: Container(
-                        height: 170,
-                        width: 170,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.08),
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    Positioned(
-                      top: 100,
-                      left: -40,
-                      child: Container(
-                        height: 130,
-                        width: 130,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.06),
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(30),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              height: 105,
-                              width: 105,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.13),
-                                borderRadius: BorderRadius.circular(28),
-                              ),
-                              child: const Icon(
-                                Icons.work_outline_rounded,
-                                color: Colors.white,
-                                size: 60,
-                              ),
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            const Text(
-                              'ALU_HUB',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 34,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            const Text(
-                              'Connect. Learn. Grow.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                  size: 78,
                 ),
               ),
-            ),
 
-            // Lower introduction section
-            Expanded(
-              flex: 5,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(28, 30, 28, 22),
-                child: Column(
-                  children: [
-                    Text(
-                      'Build Your Future with ALU',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 25,
-                        fontWeight: FontWeight.w900,
-                        height: 1.2,
-                      ),
-                    ),
+              const SizedBox(height: 35),
 
-                    const SizedBox(height: 16),
-
-                    Text(
-                      'Discover internships, projects, and practical experiences created by student-led startups within the ALU community.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: mutedTextColor,
-                        fontSize: 15,
-                        height: 1.5,
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    FilledButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LoginScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text('Get Started'),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Text(
-                      'Opportunities built for the ALU community',
-                      style: TextStyle(color: mutedTextColor, fontSize: 12),
-                    ),
-                  ],
+              Text(
+                'Welcome to ALU Hub',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 14),
+
+              Text(
+                'Discover startup opportunities, build experience, and connect with talented ALU students.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: mutedTextColor,
+                  fontSize: 16,
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 35),
+
+              _FeatureItem(
+                icon: Icons.search_rounded,
+                title: 'Discover Opportunities',
+                description: 'Explore internships and startup projects.',
+                textColor: textColor,
+                mutedTextColor: mutedTextColor,
+              ),
+
+              const SizedBox(height: 18),
+
+              _FeatureItem(
+                icon: Icons.assignment_outlined,
+                title: 'Track Applications',
+                description: 'Follow your application progress in real time.',
+                textColor: textColor,
+                mutedTextColor: mutedTextColor,
+              ),
+
+              const SizedBox(height: 18),
+
+              _FeatureItem(
+                icon: Icons.groups_outlined,
+                title: 'Connect with Startups',
+                description: 'Build practical experience with ALU ventures.',
+                textColor: textColor,
+                mutedTextColor: mutedTextColor,
+              ),
+
+              const Spacer(),
+
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    openRegister(context);
+                  },
+                  child: const Text('Create Account'),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    openLogin(context);
+                  },
+                  child: const Text('I Already Have an Account'),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _FeatureItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color textColor;
+  final Color mutedTextColor;
+
+  const _FeatureItem({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.textColor,
+    required this.mutedTextColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          height: 50,
+          width: 50,
+          decoration: BoxDecoration(
+            color: AppColors.primaryBlue.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Icon(icon, color: AppColors.primaryBlue),
+        ),
+
+        const SizedBox(width: 14),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              Text(
+                description,
+                style: TextStyle(color: mutedTextColor, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

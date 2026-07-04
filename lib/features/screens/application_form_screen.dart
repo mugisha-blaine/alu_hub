@@ -30,7 +30,7 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
 
   String selectedStudyYear = 'Year 1';
 
-  final List<String> studyYears = ['Year 1', 'Year 2', 'Year 3', 'Year 4'];
+  final List<String> studyYears = ['Year 1', 'Year 2', 'Year 3'];
 
   bool agreedToTerms = false;
   bool isLoading = false;
