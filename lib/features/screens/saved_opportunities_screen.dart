@@ -5,7 +5,6 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../providers/opportunity_provider.dart';
 import '../widgets/opportunity_card.dart';
-import 'opportunity_details_screen.dart';
 
 class SavedOpportunitiesScreen extends ConsumerWidget {
   const SavedOpportunitiesScreen({super.key});
