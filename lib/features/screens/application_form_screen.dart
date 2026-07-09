@@ -28,9 +28,9 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
   final motivationController = TextEditingController();
   final portfolioController = TextEditingController();
 
-  String selectedStudyYear = 'Year 1';
-
   final List<String> studyYears = ['Year 1', 'Year 2', 'Year 3'];
+
+  String selectedStudyYear = 'Year 1';
 
   bool agreedToTerms = false;
   bool isLoading = false;
@@ -62,18 +62,42 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 4)),
+    );
+  }
+
+  bool isAllowedStudentEmail(String email) {
+    return email.trim().toLowerCase().endsWith('@alustudent.com');
+  }
+
+  String readableErrorMessage(Object error) {
+    final errorText = error.toString().toLowerCase();
+
+    if (errorText.contains('already applied')) {
+      return 'You have already applied for this opportunity.';
+    }
+
+    if (errorText.contains('permission-denied')) {
+      return 'The application could not be submitted. Check that your account is a Student account and that the opportunity is still active.';
+    }
+
+    if (errorText.contains('network')) {
+      return 'Check your internet connection and try again.';
+    }
+
+    return 'Unable to submit the application. Please try again.';
   }
 
   void submitApplication() {
-    if (!formKey.currentState!.validate()) {
+    final formIsValid = formKey.currentState?.validate() ?? false;
+
+    if (!formIsValid) {
       return;
     }
 
     if (!agreedToTerms) {
-      showMessage('Please confirm that your information is correct.');
+      showMessage('Please confirm that the information provided is correct.');
       return;
     }
 
@@ -84,40 +108,42 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
       return;
     }
 
+    if (widget.opportunity.id.isEmpty) {
+      showMessage('This opportunity could not be identified.');
+      return;
+    }
+
+    if (widget.opportunity.startupId.isEmpty) {
+      showMessage('The startup information is missing.');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
     setState(() {
       isLoading = true;
     });
 
+    final application = ApplicationModel(
+      id: '',
+      opportunityId: widget.opportunity.id,
+      opportunityTitle: widget.opportunity.title,
+      startupId: widget.opportunity.startupId,
+      startupName: widget.opportunity.startupName,
+      studentId: user.uid,
+      studentName: fullNameController.text.trim(),
+      studentEmail: emailController.text.trim().toLowerCase(),
+      phone: phoneController.text.trim(),
+      studyYear: selectedStudyYear,
+      portfolioUrl: portfolioController.text.trim(),
+      motivation: motivationController.text.trim(),
+      status: 'Submitted',
+    );
+
     final repository = ref.read(applicationRepositoryProvider);
 
     repository
-        .hasAlreadyApplied(
-          studentId: user.uid,
-          opportunityId: widget.opportunity.id,
-        )
-        .then((alreadyApplied) {
-          if (alreadyApplied) {
-            throw Exception('You have already applied for this opportunity.');
-          }
-
-          final application = ApplicationModel(
-            id: '',
-            opportunityId: widget.opportunity.id,
-            opportunityTitle: widget.opportunity.title,
-            startupId: widget.opportunity.startupId,
-            startupName: widget.opportunity.startupName,
-            studentId: user.uid,
-            studentName: fullNameController.text.trim(),
-            studentEmail: emailController.text.trim(),
-            phone: phoneController.text.trim(),
-            studyYear: selectedStudyYear,
-            portfolioUrl: portfolioController.text.trim(),
-            motivation: motivationController.text.trim(),
-            status: 'Submitted',
-          );
-
-          return repository.submitApplication(application);
-        })
+        .submitApplication(application)
         .then((_) {
           if (!mounted) {
             return;
@@ -136,15 +162,7 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
           );
         })
         .catchError((error) {
-          if (!mounted) {
-            return;
-          }
-
-          final message = error.toString().contains('already applied')
-              ? 'You have already applied for this opportunity.'
-              : 'Unable to submit application: $error';
-
-          showMessage(message);
+          showMessage(readableErrorMessage(error));
         })
         .whenComplete(() {
           if (mounted) {
@@ -197,11 +215,24 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
                 controller: fullNameController,
                 enabled: !isLoading,
                 textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   hintText: 'Enter your full name',
                   prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
-                validator: requiredValidator,
+                validator: (value) {
+                  final name = value?.trim() ?? '';
+
+                  if (name.isEmpty) {
+                    return 'Please enter your full name';
+                  }
+
+                  if (name.length < 2) {
+                    return 'Please enter a valid name';
+                  }
+
+                  return null;
+                },
               ),
 
               const SizedBox(height: 18),
@@ -214,17 +245,24 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
                 controller: emailController,
                 enabled: !isLoading,
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
-                  hintText: 'Enter your ALU email',
+                  hintText: 'name@alustudent.com',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  final email = value?.trim().toLowerCase() ?? '';
+
+                  if (email.isEmpty) {
                     return 'Please enter your email';
                   }
 
-                  if (!value.contains('@')) {
+                  if (!email.contains('@') || !email.contains('.')) {
                     return 'Please enter a valid email';
+                  }
+
+                  if (!isAllowedStudentEmail(email)) {
+                    return 'Use your @alustudent.com email';
                   }
 
                   return null;
@@ -241,11 +279,24 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
                 controller: phoneController,
                 enabled: !isLoading,
                 keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   hintText: 'Enter your phone number',
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
-                validator: requiredValidator,
+                validator: (value) {
+                  final phone = value?.trim() ?? '';
+
+                  if (phone.isEmpty) {
+                    return 'Please enter your phone number';
+                  }
+
+                  if (phone.length < 8) {
+                    return 'Please enter a valid phone number';
+                  }
+
+                  return null;
+                },
               ),
 
               const SizedBox(height: 18),
@@ -260,16 +311,21 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
                   prefixIcon: Icon(Icons.school_outlined),
                 ),
                 items: studyYears.map((year) {
-                  return DropdownMenuItem(value: year, child: Text(year));
+                  return DropdownMenuItem<String>(
+                    value: year,
+                    child: Text(year),
+                  );
                 }).toList(),
                 onChanged: isLoading
                     ? null
                     : (value) {
-                        if (value != null) {
-                          setState(() {
-                            selectedStudyYear = value;
-                          });
+                        if (value == null) {
+                          return;
                         }
+
+                        setState(() {
+                          selectedStudyYear = value;
+                        });
                       },
               ),
 
@@ -287,10 +343,26 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
                 controller: portfolioController,
                 enabled: !isLoading,
                 keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   hintText: 'GitHub, LinkedIn, or portfolio link',
                   prefixIcon: Icon(Icons.link_rounded),
                 ),
+                validator: (value) {
+                  final link = value?.trim() ?? '';
+
+                  if (link.isEmpty) {
+                    return null;
+                  }
+
+                  final uri = Uri.tryParse(link);
+
+                  if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+                    return 'Enter a complete link, for example https://github.com/name';
+                  }
+
+                  return null;
+                },
               ),
 
               const SizedBox(height: 18),
@@ -307,16 +379,20 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
                 enabled: !isLoading,
                 maxLines: 6,
                 maxLength: 500,
+                textInputAction: TextInputAction.newline,
                 decoration: const InputDecoration(
                   hintText:
                       'Explain why you are interested in this opportunity...',
+                  alignLabelWithHint: true,
                 ),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  final motivation = value?.trim() ?? '';
+
+                  if (motivation.isEmpty) {
                     return 'Please write your motivation';
                   }
 
-                  if (value.trim().length < 30) {
+                  if (motivation.length < 30) {
                     return 'Please write at least 30 characters';
                   }
 
@@ -343,32 +419,29 @@ class _ApplicationFormScreenState extends ConsumerState<ApplicationFormScreen> {
 
               const SizedBox(height: 18),
 
-              FilledButton(
-                onPressed: isLoading ? null : submitApplication,
-                child: isLoading
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Submit Application'),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: isLoading ? null : submitApplication,
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Submit Application'),
+                ),
               ),
+
+              const SizedBox(height: 24),
             ],
           ),
         ),
       ),
     );
-  }
-
-  static String? requiredValidator(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'This field is required';
-    }
-
-    return null;
   }
 }
 

@@ -9,34 +9,47 @@ import 'create_opportunity_screen.dart';
 import 'manage_opportunities_screen.dart';
 import 'view_applicants.dart';
 
-class StartupDashboardScreen extends ConsumerStatefulWidget {
+class StartupDashboardScreen extends ConsumerWidget {
   final String startupName;
 
   const StartupDashboardScreen({super.key, required this.startupName});
 
-  @override
-  ConsumerState<StartupDashboardScreen> createState() {
-    return _StartupDashboardScreenState();
-  }
-}
-
-class _StartupDashboardScreenState
-    extends ConsumerState<StartupDashboardScreen> {
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      return const Scaffold(body: Center(child: Text('Please sign in again.')));
-    }
-
-    // Load this startup's opportunities.
-    final opportunitiesAsync = ref.watch(
-      startupOpportunitiesProvider(user.uid),
+  void openCreateOpportunity(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return CreateOpportunityScreen(startupName: startupName);
+        },
+      ),
     );
+  }
 
-    // Load applications sent to this startup.
-    final applicationsAsync = ref.watch(startupApplicationsProvider(user.uid));
+  void openManageOpportunities(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return const ManageOpportunitiesScreen();
+        },
+      ),
+    );
+  }
+
+  void openApplicants(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          return const ViewApplicantsScreen();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = FirebaseAuth.instance.currentUser;
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -44,288 +57,283 @@ class _StartupDashboardScreenState
 
     final mutedTextColor = isDarkMode ? Colors.white70 : AppColors.mutedText;
 
-    final cardColor = isDarkMode ? AppColors.darkCard : Colors.white;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('Please sign in to open the dashboard.')),
+      );
+    }
+
+    final opportunitiesAsync = ref.watch(
+      startupOpportunitiesProvider(user.uid),
+    );
+
+    final applicationsAsync = ref.watch(startupApplicationsProvider(user.uid));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Startup Dashboard'),
-        automaticallyImplyLeading: false,
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () {
-            ref.invalidate(startupOpportunitiesProvider(user.uid));
+      appBar: AppBar(title: const Text('Startup Dashboard'), centerTitle: true),
+      body: RefreshIndicator(
+        onRefresh: () {
+          ref.invalidate(startupOpportunitiesProvider(user.uid));
 
-            ref.invalidate(startupApplicationsProvider(user.uid));
+          ref.invalidate(startupApplicationsProvider(user.uid));
 
-            return ref.read(startupOpportunitiesProvider(user.uid).future);
-          },
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              // Welcome section
-              Text(
-                'Welcome, ${widget.startupName} 👋',
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 25,
-                  fontWeight: FontWeight.w900,
-                ),
+          return Future.delayed(const Duration(milliseconds: 500));
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          children: [
+            Text(
+              'Welcome, $startupName 👋',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
               ),
+            ),
 
-              const SizedBox(height: 7),
+            const SizedBox(height: 7),
 
-              Text(
-                'Manage your opportunities and applicants.',
-                style: TextStyle(color: mutedTextColor, fontSize: 14),
+            Text(
+              'Manage your opportunities and applicants.',
+              style: TextStyle(color: mutedTextColor, fontSize: 15),
+            ),
+
+            const SizedBox(height: 30),
+
+            Text(
+              'Overview',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
               ),
+            ),
 
-              const SizedBox(height: 24),
+            const SizedBox(height: 14),
 
-              // Dashboard statistics
-              opportunitiesAsync.when(
-                loading: () {
-                  return const _StatisticsLoading();
-                },
-                error: (error, stackTrace) {
-                  return _DashboardError(
-                    message: 'Unable to load opportunities: $error',
-                    onRetry: () {
-                      ref.invalidate(startupOpportunitiesProvider(user.uid));
-                    },
-                  );
-                },
-                data: (opportunities) {
-                  return applicationsAsync.when(
-                    loading: () {
-                      return const _StatisticsLoading();
-                    },
-                    error: (error, stackTrace) {
-                      return _DashboardError(
-                        message: 'Unable to load applications: $error',
-                        onRetry: () {
-                          ref.invalidate(startupApplicationsProvider(user.uid));
-                        },
-                      );
-                    },
-                    data: (applications) {
-                      final totalOpportunities = opportunities.length;
-
-                      final activeOpportunities = opportunities.where((
-                        opportunity,
-                      ) {
-                        return opportunity.isActive;
-                      }).length;
-
-                      final totalApplicants = applications.length;
-
-                      final acceptedApplicants = applications.where((
-                        application,
-                      ) {
-                        return application.status.toLowerCase() == 'accepted';
-                      }).length;
-
-                      return Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _StatCard(
-                                  title: 'Total Opportunities',
-                                  value: totalOpportunities.toString(),
-                                  icon: Icons.work_outline_rounded,
-                                  cardColor: cardColor,
-                                  textColor: textColor,
-                                ),
-                              ),
-
-                              const SizedBox(width: 12),
-
-                              Expanded(
-                                child: _StatCard(
-                                  title: 'Active Opportunities',
-                                  value: activeOpportunities.toString(),
-                                  icon: Icons.check_circle_outline_rounded,
-                                  cardColor: cardColor,
-                                  textColor: textColor,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _StatCard(
-                                  title: 'Total Applicants',
-                                  value: totalApplicants.toString(),
-                                  icon: Icons.people_outline_rounded,
-                                  cardColor: cardColor,
-                                  textColor: textColor,
-                                ),
-                              ),
-
-                              const SizedBox(width: 12),
-
-                              Expanded(
-                                child: _StatCard(
-                                  title: 'Accepted Applicants',
-                                  value: acceptedApplicants.toString(),
-                                  icon: Icons.person_add_alt_rounded,
-                                  cardColor: cardColor,
-                                  textColor: textColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              ),
-
-              const SizedBox(height: 30),
-
-              Text(
-                'Quick Actions',
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              // Post opportunity action
-              _ActionTile(
-                icon: Icons.add_circle_outline_rounded,
-                title: 'Post an Opportunity',
-                description: 'Create a new internship or project opportunity.',
-                cardColor: cardColor,
-                textColor: textColor,
-                mutedTextColor: mutedTextColor,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) {
-                        return CreateOpportunityScreen(
-                          startupName: widget.startupName,
-                        );
+            opportunitiesAsync.when(
+              loading: () {
+                return const _OverviewLoading();
+              },
+              error: (error, stackTrace) {
+                return _OverviewError(
+                  message: 'Unable to load opportunities.',
+                  onRetry: () {
+                    ref.invalidate(startupOpportunitiesProvider(user.uid));
+                  },
+                );
+              },
+              data: (opportunities) {
+                return applicationsAsync.when(
+                  loading: () {
+                    return const _OverviewLoading();
+                  },
+                  error: (error, stackTrace) {
+                    return _OverviewError(
+                      message: 'Unable to load applicants.',
+                      onRetry: () {
+                        ref.invalidate(startupApplicationsProvider(user.uid));
                       },
-                    ),
-                  );
-                },
+                    );
+                  },
+                  data: (applications) {
+                    final activeCount = opportunities.where((opportunity) {
+                      return opportunity.isActive;
+                    }).length;
+
+                    final acceptedCount = applications.where((application) {
+                      return application.status == 'Accepted';
+                    }).length;
+
+                    final submittedCount = applications.where((application) {
+                      return application.status == 'Submitted';
+                    }).length;
+
+                    return Column(
+                      children: [
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final cards = [
+                              _OverviewCard(
+                                icon: Icons.work_outline_rounded,
+                                number: opportunities.length.toString(),
+                                label: 'Opportunities',
+                              ),
+                              _OverviewCard(
+                                icon: Icons.check_circle_outline_rounded,
+                                number: activeCount.toString(),
+                                label: 'Active',
+                              ),
+                              _OverviewCard(
+                                icon: Icons.groups_outlined,
+                                number: applications.length.toString(),
+                                label: 'Applicants',
+                              ),
+                              _OverviewCard(
+                                icon: Icons.task_alt_rounded,
+                                number: acceptedCount.toString(),
+                                label: 'Accepted',
+                              ),
+                            ];
+
+                            if (constraints.maxWidth >= 700) {
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: cards[0]),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: cards[1]),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: cards[2]),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: cards[3]),
+                                ],
+                              );
+                            }
+
+                            return Column(
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: cards[0]),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: cards[1]),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(child: cards[2]),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: cards[3]),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        _ApplicationSummaryCard(
+                          submitted: submittedCount,
+                          accepted: acceptedCount,
+                          total: applications.length,
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+
+            const SizedBox(height: 30),
+
+            Text(
+              'Quick Actions',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
               ),
+            ),
 
-              const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-              // Manage opportunities action
-              _ActionTile(
-                icon: Icons.edit_note_rounded,
-                title: 'Manage Opportunities',
-                description:
-                    'Edit, activate, deactivate, or delete your posts.',
-                cardColor: cardColor,
-                textColor: textColor,
-                mutedTextColor: mutedTextColor,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) {
-                        return const ManageOpportunitiesScreen();
-                      },
-                    ),
-                  );
-                },
-              ),
+            _QuickActionCard(
+              icon: Icons.add_circle_outline_rounded,
+              title: 'Post an Opportunity',
+              description: 'Create a new internship or project opportunity.',
+              onTap: () {
+                openCreateOpportunity(context);
+              },
+            ),
 
-              const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-              // View applicants action
-              _ActionTile(
-                icon: Icons.groups_outlined,
-                title: 'View Applicants',
-                description:
-                    'Review students who applied to your opportunities.',
-                cardColor: cardColor,
-                textColor: textColor,
-                mutedTextColor: mutedTextColor,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) {
-                        return const ViewApplicantsScreen();
-                      },
-                    ),
-                  );
-                },
-              ),
+            _QuickActionCard(
+              icon: Icons.edit_note_rounded,
+              title: 'Manage Opportunities',
+              description: 'Edit, activate, deactivate, or delete your posts.',
+              onTap: () {
+                openManageOpportunities(context);
+              },
+            ),
 
-              const SizedBox(height: 30),
-            ],
-          ),
+            const SizedBox(height: 12),
+
+            _QuickActionCard(
+              icon: Icons.groups_outlined,
+              title: 'View Applicants',
+              description: 'Review students who applied to your opportunities.',
+              onTap: () {
+                openApplicants(context);
+              },
+            ),
+
+            const SizedBox(height: 30),
+          ],
         ),
       ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
+class _OverviewCard extends StatelessWidget {
   final IconData icon;
-  final Color cardColor;
-  final Color textColor;
+  final String number;
+  final String label;
 
-  const _StatCard({
-    required this.title,
-    required this.value,
+  const _OverviewCard({
     required this.icon,
-    required this.cardColor,
-    required this.textColor,
+    required this.number,
+    required this.label,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    final textColor = isDarkMode ? Colors.white : AppColors.darkText;
+
+    final mutedTextColor = isDarkMode ? Colors.white70 : AppColors.mutedText;
+
     return Container(
-      constraints: const BoxConstraints(minHeight: 145),
-      padding: const EdgeInsets.all(17),
+      constraints: const BoxConstraints(minHeight: 150),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(20),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.white10
-              : Colors.black.withOpacity(0.05),
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.25),
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 43,
-            width: 43,
+            height: 42,
+            width: 42,
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(13),
+              color: AppColors.primaryBlue.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: AppColors.primaryBlue),
+            child: Icon(icon, color: AppColors.primaryBlue, size: 23),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 14),
 
           Text(
-            value,
+            number,
             style: TextStyle(
               color: textColor,
-              fontSize: 27,
+              fontSize: 25,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -333,13 +341,79 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 4),
 
           Text(
-            title,
+            label,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.mutedText,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            style: TextStyle(color: mutedTextColor, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApplicationSummaryCard extends StatelessWidget {
+  final int submitted;
+  final int accepted;
+  final int total;
+
+  const _ApplicationSummaryCard({
+    required this.submitted,
+    required this.accepted,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    final textColor = isDarkMode ? Colors.white : AppColors.darkText;
+
+    final mutedTextColor = isDarkMode ? Colors.white70 : AppColors.mutedText;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.primaryBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 48,
+            width: 48,
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.analytics_outlined, color: Colors.white),
+          ),
+
+          const SizedBox(width: 14),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Application summary',
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  total == 0
+                      ? 'No applications received yet.'
+                      : '$submitted submitted • $accepted accepted',
+                  style: TextStyle(color: mutedTextColor, fontSize: 13),
+                ),
+              ],
             ),
           ),
         ],
@@ -348,56 +422,54 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _ActionTile extends StatelessWidget {
+class _QuickActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
-  final Color cardColor;
-  final Color textColor;
-  final Color mutedTextColor;
   final VoidCallback onTap;
 
-  const _ActionTile({
+  const _QuickActionCard({
     required this.icon,
     required this.title,
     required this.description,
-    required this.cardColor,
-    required this.textColor,
-    required this.mutedTextColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    final textColor = isDarkMode ? Colors.white : AppColors.darkText;
+
+    final mutedTextColor = isDarkMode ? Colors.white70 : AppColors.mutedText;
+
     return Material(
-      color: cardColor,
-      borderRadius: BorderRadius.circular(19),
+      color: Theme.of(context).cardColor,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(19),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.all(17),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(19),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white10
-                  : Colors.black.withOpacity(0.05),
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.25),
             ),
           ),
           child: Row(
             children: [
               Container(
-                height: 53,
-                width: 53,
+                height: 54,
+                width: 54,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.12),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Icon(icon, color: AppColors.primaryBlue, size: 27),
               ),
 
-              const SizedBox(width: 14),
+              const SizedBox(width: 15),
 
               Expanded(
                 child: Column(
@@ -408,19 +480,15 @@ class _ActionTile extends StatelessWidget {
                       style: TextStyle(
                         color: textColor,
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
 
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
 
                     Text(
                       description,
-                      style: TextStyle(
-                        color: mutedTextColor,
-                        fontSize: 13,
-                        height: 1.35,
-                      ),
+                      style: TextStyle(color: mutedTextColor, fontSize: 13),
                     ),
                   ],
                 ),
@@ -441,47 +509,52 @@ class _ActionTile extends StatelessWidget {
   }
 }
 
-class _StatisticsLoading extends StatelessWidget {
-  const _StatisticsLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 200,
-      child: Center(child: CircularProgressIndicator()),
-    );
-  }
-}
-
-class _DashboardError extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _DashboardError({required this.message, required this.onRetry});
+class _OverviewLoading extends StatelessWidget {
+  const _OverviewLoading();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      height: 150,
+      width: double.infinity,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.08),
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(18),
       ),
-      child: Column(
+      child: const CircularProgressIndicator(),
+    );
+  }
+}
+
+class _OverviewError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _OverviewError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 45),
-
-          const SizedBox(height: 12),
-
-          Text(message, textAlign: TextAlign.center),
-
-          const SizedBox(height: 15),
-
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Try Again'),
+          const Icon(
+            Icons.error_outline,
+            color: AppColors.primaryBlue,
+            size: 28,
           ),
+
+          const SizedBox(width: 12),
+
+          Expanded(child: Text(message)),
+
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

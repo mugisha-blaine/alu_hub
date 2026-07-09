@@ -117,6 +117,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               'website': '',
               'location': '',
               'description': '',
+              'isVerified': false,
+            });
+          } else {
+            userData.addAll({
+              'skills': <String>[],
+              'interests': <String>[],
+              'studyYear': '',
+              'portfolioUrl': '',
             });
           }
 

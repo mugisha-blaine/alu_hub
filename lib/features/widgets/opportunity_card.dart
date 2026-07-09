@@ -17,6 +17,14 @@ class OpportunityCard extends StatelessWidget {
     this.isBookmarked = false,
   });
 
+  String formatDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString();
+
+    return '$day/$month/$year';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -85,15 +93,6 @@ class OpportunityCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-
-                            if (opportunity.isVerified) ...[
-                              const SizedBox(width: 5),
-                              const Icon(
-                                Icons.verified_rounded,
-                                color: AppColors.accentBlue,
-                                size: 18,
-                              ),
-                            ],
                           ],
                         ),
                       ],
@@ -159,7 +158,7 @@ class OpportunityCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Deadline: ${opportunity.deadline}',
+                      'Deadline: ${formatDate(opportunity.deadline)}',
                       style: TextStyle(
                         color: mutedTextColor,
                         fontSize: 13,
