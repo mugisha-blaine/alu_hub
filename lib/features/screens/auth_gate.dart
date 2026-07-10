@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../navigation/main_navigation.dart';
+import 'admin_dashboard_screen.dart';
 import 'onboarding_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -51,7 +52,7 @@ class AuthGate extends StatelessWidget {
               );
             }
 
-            final userData = userDocument.data();
+            final userData = userDocument.data() ?? <String, dynamic>{};
 
             final userName =
                 userData?['name']?.toString() ??
@@ -59,9 +60,28 @@ class AuthGate extends StatelessWidget {
                 user.email?.split('@').first ??
                 'ALU User';
 
-            final role = userData?['role']?.toString() ?? 'Student';
+            final role = userData['role']?.toString() ?? 'Student';
 
-            return MainNavigation(userName: userName, role: role);
+            final startupName =
+                userData['startupName']?.toString() ??
+                userData['name']?.toString() ??
+                'Startup';
+
+            if (role == 'Admin') {
+              return const AdminDashboardScreen();
+            }
+
+            if (role == 'Startup') {
+              return MainNavigation(
+                userRole: UserRole.startup,
+                startupName: startupName,
+              );
+            }
+
+            return const MainNavigation(
+              userRole: UserRole.student,
+              startupName: '',
+            );
           },
         );
       },

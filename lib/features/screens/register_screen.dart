@@ -19,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final nameController = TextEditingController();
   final emailController = TextEditingController();
+  final founderAluEmailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
@@ -32,24 +33,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     nameController.dispose();
     emailController.dispose();
+    founderAluEmailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
 
     super.dispose();
   }
 
-  bool isAllowedStudentEmail(String email) {
-    return email.trim().toLowerCase().endsWith('@alustudent.com');
+  bool isValidEmail(String email) {
+    final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+    return emailPattern.hasMatch(email.trim().toLowerCase());
   }
 
-  void showMessage(String message) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 4)),
-    );
+  bool isAllowedAluEmail(String email) {
+    return email.trim().toLowerCase().endsWith('@alustudent.com');
   }
 
   String getNameLabel() {
@@ -68,8 +66,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return 'Enter your full name';
   }
 
+  void showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 4)),
+    );
+  }
+
+  String readableRegistrationError(Object error) {
+    if (error is FirebaseAuthException) {
+      if (error.code == 'email-already-in-use') {
+        return 'An account already exists with this email.';
+      }
+
+      if (error.code == 'invalid-email') {
+        return 'Please enter a valid email address.';
+      }
+
+      if (error.code == 'weak-password') {
+        return 'Use a stronger password with at least 6 characters.';
+      }
+
+      if (error.code == 'network-request-failed') {
+        return 'Check your internet connection and try again.';
+      }
+
+      if (error.code == 'operation-not-allowed') {
+        return 'Email and password registration is not enabled.';
+      }
+
+      return 'Registration failed: ${error.message ?? error.code}';
+    }
+
+    final errorText = error.toString();
+
+    if (errorText.contains('permission-denied')) {
+      return 'Your profile could not be created. Check your email and account type.';
+    }
+
+    return 'Unable to create account. Please try again.';
+  }
+
   void createAccount() {
-    if (!formKey.currentState!.validate()) {
+    final formIsValid = formKey.currentState?.validate() ?? false;
+
+    if (!formIsValid) {
       return;
     }
 
@@ -79,11 +123,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final email = emailController.text.trim().toLowerCase();
 
+    final founderAluEmail = founderAluEmailController.text.trim().toLowerCase();
+
     final password = passwordController.text;
 
-    if (selectedRole == 'Student' && !isAllowedStudentEmail(email)) {
-      showMessage('Student accounts require an @alustudent.com email address.');
+    if (selectedRole == 'Student' && !isAllowedAluEmail(email)) {
+      showMessage('Student accounts require an @alustudent.com email.');
+      return;
+    }
 
+    if (selectedRole == 'Startup' && !isAllowedAluEmail(founderAluEmail)) {
+      showMessage('The startup founder must provide an @alustudent.com email.');
       return;
     }
 
@@ -97,7 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           final user = userCredential.user;
 
           if (user == null) {
-            throw Exception('Firebase could not create the user account.');
+            throw Exception('Firebase could not create the account.');
           }
 
           final userData = <String, dynamic>{
@@ -114,10 +164,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           if (selectedRole == 'Startup') {
             userData.addAll({
               'startupName': name,
+              'founderName': '',
+              'founderAluEmail': founderAluEmail,
               'website': '',
               'location': '',
               'description': '',
               'isVerified': false,
+              'verificationStatus': 'Pending',
+              'verificationMessage': '',
             });
           } else {
             userData.addAll({
@@ -141,46 +195,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
             return;
           }
 
-          showMessage('Account created successfully.');
+          showMessage(
+            selectedRole == 'Startup'
+                ? 'Startup account created. Your account is awaiting administrator verification.'
+                : 'Student account created successfully.',
+          );
 
-          /*
-           * The user is now signed in.
-           * Return to the first route so AuthGate can open
-           * the correct Student or Startup navigation.
-           */
           Navigator.popUntil(context, (route) => route.isFirst);
         })
         .catchError((error) {
-          String message = 'Unable to create account. Please try again.';
+          final message = readableRegistrationError(error);
 
-          if (error is FirebaseAuthException) {
-            if (error.code == 'email-already-in-use') {
-              message = 'An account already exists with this email.';
-            } else if (error.code == 'invalid-email') {
-              message = 'Please enter a valid email address.';
-            } else if (error.code == 'weak-password') {
-              message = 'Use a stronger password with at least 6 characters.';
-            } else if (error.code == 'network-request-failed') {
-              message = 'Check your internet connection and try again.';
-            } else if (error.code == 'operation-not-allowed') {
-              message = 'Email and password registration is not enabled.';
-            } else {
-              message = 'Registration error: ${error.code}';
-            }
-          }
-
-          /*
-           * Remove an incomplete Authentication account
-           * when Firestore profile creation fails.
-           */
           final currentUser = FirebaseAuth.instance.currentUser;
 
           if (currentUser != null) {
             currentUser.delete().catchError((deleteError) {
-              debugPrint(
-                'Unable to remove incomplete account: '
-                '$deleteError',
-              );
+              debugPrint('Unable to remove incomplete account: $deleteError');
             });
           }
 
@@ -219,73 +249,159 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SafeArea(
         child: Form(
           key: formKey,
-          child: SingleChildScrollView(
+          child: ListView(
             padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 10),
-
-                Text(
-                  'Join ALU Hub',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 29,
-                    fontWeight: FontWeight.w900,
-                  ),
+            children: [
+              Text(
+                'Join ALU Hub',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 29,
+                  fontWeight: FontWeight.w900,
                 ),
+              ),
 
-                const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-                Text(
-                  'Create an account to discover opportunities or connect with ALU students.',
-                  style: TextStyle(
-                    color: mutedTextColor,
-                    fontSize: 15,
-                    height: 1.4,
-                  ),
+              Text(
+                'Create a student or startup account.',
+                style: TextStyle(
+                  color: mutedTextColor,
+                  fontSize: 15,
+                  height: 1.4,
                 ),
+              ),
 
-                const SizedBox(height: 30),
+              const SizedBox(height: 28),
 
-                Text(
-                  'Account type',
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                  ),
+              Text(
+                'Account type',
+                style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+              ),
+
+              const SizedBox(height: 8),
+
+              DropdownButtonFormField<String>(
+                initialValue: selectedRole,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.people_outline_rounded),
                 ),
+                items: const [
+                  DropdownMenuItem(value: 'Student', child: Text('Student')),
+                  DropdownMenuItem(value: 'Startup', child: Text('Startup')),
+                ],
+                onChanged: isLoading
+                    ? null
+                    : (value) {
+                        if (value == null) {
+                          return;
+                        }
 
-                const SizedBox(height: 8),
+                        setState(() {
+                          selectedRole = value;
 
-                DropdownButtonFormField<String>(
-                  initialValue: selectedRole,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.people_outline_rounded),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'Student', child: Text('Student')),
-                    DropdownMenuItem(value: 'Startup', child: Text('Startup')),
-                  ],
-                  onChanged: isLoading
-                      ? null
-                      : (value) {
-                          if (value == null) {
-                            return;
+                          if (selectedRole == 'Student') {
+                            founderAluEmailController.clear();
                           }
+                        });
 
-                          setState(() {
-                            selectedRole = value;
-                          });
+                        formKey.currentState?.validate();
+                      },
+              ),
 
-                          formKey.currentState?.validate();
-                        },
+              const SizedBox(height: 20),
+
+              Text(
+                getNameLabel(),
+                style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: nameController,
+                enabled: !isLoading,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  hintText: getNameHint(),
+                  prefixIcon: Icon(
+                    selectedRole == 'Startup'
+                        ? Icons.business_outlined
+                        : Icons.person_outline_rounded,
+                  ),
                 ),
+                validator: (value) {
+                  final name = value?.trim() ?? '';
 
+                  if (name.isEmpty) {
+                    return selectedRole == 'Startup'
+                        ? 'Please enter your startup name'
+                        : 'Please enter your full name';
+                  }
+
+                  if (name.length < 2) {
+                    return 'Name must contain at least 2 characters';
+                  }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                selectedRole == 'Startup'
+                    ? 'Startup account email'
+                    : 'Student email',
+                style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: emailController,
+                enabled: !isLoading,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  hintText: selectedRole == 'Student'
+                      ? 'name@alustudent.com'
+                      : 'startup@example.com',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                ),
+                validator: (value) {
+                  final email = value?.trim().toLowerCase() ?? '';
+
+                  if (email.isEmpty) {
+                    return 'Please enter your email address';
+                  }
+
+                  if (!isValidEmail(email)) {
+                    return 'Please enter a valid email address';
+                  }
+
+                  if (selectedRole == 'Student' && !isAllowedAluEmail(email)) {
+                    return 'Students must use an @alustudent.com email';
+                  }
+
+                  return null;
+                },
+              ),
+
+              if (selectedRole == 'Student') ...[
+                const SizedBox(height: 7),
+                Text(
+                  'Student accounts require an official @alustudent.com email.',
+                  style: TextStyle(color: mutedTextColor, fontSize: 12),
+                ),
+              ],
+
+              if (selectedRole == 'Startup') ...[
                 const SizedBox(height: 20),
 
                 Text(
-                  getNameLabel(),
+                  'Founder ALU email',
                   style: TextStyle(
                     color: textColor,
                     fontWeight: FontWeight.w800,
@@ -295,231 +411,179 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 8),
 
                 TextFormField(
-                  controller: nameController,
-                  enabled: !isLoading,
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    hintText: getNameHint(),
-                    prefixIcon: Icon(
-                      selectedRole == 'Startup'
-                          ? Icons.business_outlined
-                          : Icons.person_outline_rounded,
-                    ),
-                  ),
-                  validator: (value) {
-                    final name = value?.trim() ?? '';
-
-                    if (name.isEmpty) {
-                      if (selectedRole == 'Startup') {
-                        return 'Please enter your startup name';
-                      }
-
-                      return 'Please enter your full name';
-                    }
-
-                    if (name.length < 2) {
-                      return 'Name must contain at least 2 characters';
-                    }
-
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                Text(
-                  'Email address',
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: emailController,
+                  controller: founderAluEmailController,
                   enabled: !isLoading,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    hintText: selectedRole == 'Student'
-                        ? 'name@alustudent.com'
-                        : 'Enter your email address',
-                    prefixIcon: const Icon(Icons.email_outlined),
+                  decoration: const InputDecoration(
+                    hintText: 'founder@alustudent.com',
+                    prefixIcon: Icon(Icons.school_outlined),
                   ),
                   validator: (value) {
+                    if (selectedRole != 'Startup') {
+                      return null;
+                    }
+
                     final email = value?.trim().toLowerCase() ?? '';
 
                     if (email.isEmpty) {
-                      return 'Please enter your email address';
+                      return 'Please enter the founder ALU email';
                     }
 
-                    if (!email.contains('@') || !email.contains('.')) {
+                    if (!isValidEmail(email)) {
                       return 'Please enter a valid email address';
                     }
 
-                    if (selectedRole == 'Student' &&
-                        !isAllowedStudentEmail(email)) {
-                      return 'Students must use an @alustudent.com email';
+                    if (!isAllowedAluEmail(email)) {
+                      return 'Founder must use an @alustudent.com email';
                     }
 
                     return null;
                   },
                 ),
 
-                if (selectedRole == 'Student') ...[
-                  const SizedBox(height: 7),
+                const SizedBox(height: 7),
 
-                  Text(
-                    'Student accounts require an official @alustudent.com email.',
-                    style: TextStyle(color: mutedTextColor, fontSize: 12),
+                Text(
+                  'The administrator will review this ALU email before approving the startup.',
+                  style: TextStyle(color: mutedTextColor, fontSize: 12),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              Text(
+                'Password',
+                style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: passwordController,
+                enabled: !isLoading,
+                obscureText: hidePassword,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  hintText: 'Create a password',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    onPressed: isLoading
+                        ? null
+                        : () {
+                            setState(() {
+                              hidePassword = !hidePassword;
+                            });
+                          },
+                    icon: Icon(
+                      hidePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a password';
+                  }
+
+                  if (value.length < 6) {
+                    return 'Password must contain at least 6 characters';
+                  }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                'Confirm password',
+                style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: confirmPasswordController,
+                enabled: !isLoading,
+                obscureText: hideConfirmPassword,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) {
+                  if (!isLoading) {
+                    createAccount();
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: 'Enter password again',
+                  prefixIcon: const Icon(Icons.lock_reset_rounded),
+                  suffixIcon: IconButton(
+                    onPressed: isLoading
+                        ? null
+                        : () {
+                            setState(() {
+                              hideConfirmPassword = !hideConfirmPassword;
+                            });
+                          },
+                    icon: Icon(
+                      hideConfirmPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please confirm your password';
+                  }
+
+                  if (value != passwordController.text) {
+                    return 'Passwords do not match';
+                  }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 28),
+
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: isLoading ? null : createAccount,
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Create Account'),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Already have an account?',
+                      style: TextStyle(color: mutedTextColor),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: isLoading ? null : openLogin,
+                    child: const Text('Sign In'),
                   ),
                 ],
+              ),
 
-                const SizedBox(height: 20),
-
-                Text(
-                  'Password',
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: passwordController,
-                  enabled: !isLoading,
-                  obscureText: hidePassword,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    hintText: 'Create a password',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded),
-                    suffixIcon: IconButton(
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                              setState(() {
-                                hidePassword = !hidePassword;
-                              });
-                            },
-                      icon: Icon(
-                        hidePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-
-                    if (value.length < 6) {
-                      return 'Password must contain at least 6 characters';
-                    }
-
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                Text(
-                  'Confirm password',
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: confirmPasswordController,
-                  enabled: !isLoading,
-                  obscureText: hideConfirmPassword,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) {
-                    if (!isLoading) {
-                      createAccount();
-                    }
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Enter password again',
-                    prefixIcon: const Icon(Icons.lock_reset_rounded),
-                    suffixIcon: IconButton(
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                              setState(() {
-                                hideConfirmPassword = !hideConfirmPassword;
-                              });
-                            },
-                      icon: Icon(
-                        hideConfirmPassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
-                    }
-
-                    if (value != passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 28),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: isLoading ? null : createAccount,
-                    child: isLoading
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Create Account'),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'Already have an account?',
-                        style: TextStyle(color: mutedTextColor),
-                      ),
-                    ),
-
-                    TextButton(
-                      onPressed: isLoading ? null : openLogin,
-                      child: const Text('Sign In'),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-              ],
-            ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),

@@ -1,9 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../navigation/main_navigation.dart';
+import 'auth_gate.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -43,9 +42,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void signIn() {
-    debugPrint('Sign In button clicked');
+    final formIsValid = formKey.currentState?.validate() ?? false;
 
-    if (!formKey.currentState!.validate()) {
+    if (!formIsValid) {
       return;
     }
 
@@ -57,68 +56,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
     FirebaseAuth.instance
         .signInWithEmailAndPassword(
-          email: emailController.text.trim(),
+          email: emailController.text.trim().toLowerCase(),
           password: passwordController.text,
         )
         .then((userCredential) {
           final user = userCredential.user;
 
           if (user == null) {
-            throw Exception('Firebase could not find the signed-in user.');
+            throw Exception('Firebase could not sign in the user.');
           }
-
-          debugPrint('Authentication successful');
-          debugPrint('User UID: ${user.uid}');
-
-          return FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get()
-              .then((userDocument) {
-                return {'user': user, 'document': userDocument};
-              });
-        })
-        .then((result) {
-          final user = result['user'] as User;
-
-          final userDocument =
-              result['document'] as DocumentSnapshot<Map<String, dynamic>>;
-
-          if (!userDocument.exists) {
-            debugPrint('Firestore profile does not exist');
-
-            FirebaseAuth.instance.signOut();
-
-            showMessage(
-              'Your account exists, but your profile is missing from Firestore. Register again.',
-            );
-
-            return;
-          }
-
-          final userData = userDocument.data();
-
-          final userName =
-              userData?['name']?.toString() ??
-              user.displayName ??
-              user.email?.split('@').first ??
-              'ALU User';
-
-          final role = userData?['role']?.toString() ?? 'Student';
-
-          debugPrint('Profile found');
-          debugPrint('Name: $userName');
-          debugPrint('Role: $role');
 
           if (!mounted) {
             return;
           }
 
-          Navigator.pushAndRemoveUntil(
-            context,
+          Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) {
-                return MainNavigation(userName: userName, role: role);
+                return const AuthGate();
               },
             ),
             (route) => false,
@@ -127,9 +82,9 @@ class _LoginScreenState extends State<LoginScreen> {
         .catchError((error) {
           debugPrint('Login error: $error');
 
-          if (error is FirebaseAuthException) {
-            String message = 'Sign in failed. Please try again.';
+          String message = 'Sign in failed. Please try again.';
 
+          if (error is FirebaseAuthException) {
             if (error.code == 'invalid-credential' ||
                 error.code == 'wrong-password' ||
                 error.code == 'user-not-found') {
@@ -143,22 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
             } else if (error.code == 'too-many-requests') {
               message = 'Too many attempts. Try again later.';
             } else {
-              message = 'Authentication error: ${error.code}.';
+              message = error.message ?? 'Authentication failed.';
             }
-
-            showMessage(message);
-            return;
           }
 
-          if (error is FirebaseException) {
-            showMessage(
-              'Firebase error: ${error.code}. '
-              '${error.message ?? ''}',
-            );
-            return;
-          }
-
-          showMessage('An unexpected error occurred: $error');
+          showMessage(message);
         })
         .whenComplete(() {
           if (mounted) {

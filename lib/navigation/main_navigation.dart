@@ -10,11 +10,17 @@ import '../features/screens/manage_opportunities_screen.dart';
 import '../features/screens/startup_dashboard_screen.dart';
 import '../features/screens/startup_profile_screen.dart';
 
-class MainNavigation extends StatefulWidget {
-  final String userName;
-  final String role;
+enum UserRole { student, startup }
 
-  const MainNavigation({super.key, required this.userName, required this.role});
+class MainNavigation extends StatefulWidget {
+  final UserRole userRole;
+  final String startupName;
+
+  const MainNavigation({
+    super.key,
+    required this.userRole,
+    required this.startupName,
+  });
 
   @override
   State<MainNavigation> createState() {
@@ -26,20 +32,20 @@ class _MainNavigationState extends State<MainNavigation> {
   int selectedIndex = 0;
 
   bool get isStartup {
-    return widget.role.toLowerCase() == 'startup';
+    return widget.userRole == UserRole.startup;
   }
 
   @override
   Widget build(BuildContext context) {
     final studentPages = [
-      HomeScreen(userName: widget.userName, role: widget.role),
+      const HomeScreen(userName: 'Student', role: 'Student'),
       const ExploreScreen(),
       const MyApplicationsScreen(),
       StudentProfileScreen(),
     ];
 
     final startupPages = [
-      StartupDashboardScreen(startupName: widget.userName),
+      StartupDashboardScreen(startupName: widget.startupName),
       const ManageOpportunitiesScreen(),
       const ViewApplicantsScreen(),
       const StartupProfileScreen(),
