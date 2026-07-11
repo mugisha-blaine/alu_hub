@@ -1,0 +1,367 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // HELPER FUNCTIONS
+  
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userExists() {
+      return isSignedIn()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        );
+    }
+
+    function currentUser() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isStudent() {
+      return userExists()
+        && currentUser().role == 'Student';
+    }
+
+    function isStartup() {
+      return userExists()
+        && currentUser().role == 'Startup';
+    }
+
+    function isAdmin() {
+      return userExists()
+        && currentUser().role == 'Admin';
+    }
+
+    function isVerifiedStartup() {
+      return isStartup()
+        && currentUser().isVerified == true;
+    }
+
+ 
+    // USERS
+   
+
+    match /users/{userId} {
+
+      // A user can read their own profile.
+      // Admin can read every profile.
+      allow read: if isSignedIn()
+        && (
+          request.auth.uid == userId
+          || isAdmin()
+        );
+
+      // Students and startups can create accounts.
+      // Admin accounts are created manually in Firebase.
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.email
+          == request.auth.token.email
+        && request.resource.data.role
+          in ['Student', 'Startup']
+
+        && (
+          // Student must use an ALU student email.
+          (
+            request.resource.data.role == 'Student'
+            && request.resource.data.email.matches(
+              '^[^@]+@alustudent[.]com$'
+            )
+          )
+
+          ||
+
+          // Startup must provide a valid account email
+          // and an ALU founder email.
+          (
+            request.resource.data.role == 'Startup'
+            && request.resource.data.email.matches(
+              '^[^@ ]+@[^@ ]+[.][^@ ]+$'
+            )
+            && request.resource.data.founderAluEmail.matches(
+              '^[^@]+@alustudent[.]com$'
+            )
+            && request.resource.data.isVerified == false
+            && request.resource.data.verificationStatus
+              == 'Pending'
+          )
+        );
+
+      // Users can update only their normal profile fields.
+      // They cannot change their role or verification status.
+      allow update: if
+        (
+          isSignedIn()
+          && request.auth.uid == userId
+
+          && request.resource.data.uid
+            == resource.data.uid
+
+          && request.resource.data.email
+            == resource.data.email
+
+          && request.resource.data.role
+            == resource.data.role
+
+          && request.resource.data.createdAt
+            == resource.data.createdAt
+
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasOnly([
+              'name',
+              'startupName',
+              'founderName',
+              'founderAluEmail',
+              'phone',
+              'bio',
+              'website',
+              'location',
+              'description',
+              'skills',
+              'interests',
+              'studyYear',
+              'portfolioUrl',
+              'updatedAt'
+            ])
+        )
+
+        ||
+
+        // Admin can approve, reject or return a startup to pending.
+        (
+          isAdmin()
+          && resource.data.role == 'Startup'
+
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasOnly([
+              'isVerified',
+              'verificationStatus',
+              'verificationMessage',
+              'verifiedBy',
+              'verifiedAt',
+              'updatedAt'
+            ])
+
+          && request.resource.data.verificationStatus
+            in ['Pending', 'Approved', 'Rejected']
+
+          && (
+            // Approved startup must be verified.
+            (
+              request.resource.data.verificationStatus
+                == 'Approved'
+              && request.resource.data.isVerified == true
+            )
+
+            ||
+
+            // Pending or rejected startup must not be verified.
+            (
+              request.resource.data.verificationStatus
+                != 'Approved'
+              && request.resource.data.isVerified == false
+            )
+          )
+        );
+
+      allow delete: if false;
+
+      // BOOKMARKS
+   
+
+      match /bookmarks/{opportunityId} {
+
+        allow read: if isSignedIn()
+          && request.auth.uid == userId;
+
+        allow create: if isStudent()
+          && request.auth.uid == userId
+          && request.resource.data.opportunityId
+            == opportunityId
+          && exists(
+            /databases/$(database)/documents/opportunities/$(opportunityId)
+          );
+
+        allow update: if false;
+
+        allow delete: if isSignedIn()
+          && request.auth.uid == userId;
+      }
+    }
+
+    // OPPORTUNITIES
+    
+    match /opportunities/{opportunityId} {
+
+      // Signed-in users can view opportunities.
+      allow read: if isSignedIn();
+
+      // Only verified startups can create opportunities.
+      allow create: if isVerifiedStartup()
+        && request.resource.data.startupId
+          == request.auth.uid;
+
+      // Only the verified startup owner can edit.
+      allow update: if isVerifiedStartup()
+        && resource.data.startupId
+          == request.auth.uid
+        && request.resource.data.startupId
+          == resource.data.startupId
+        && request.resource.data.createdAt
+          == resource.data.createdAt;
+
+      // Only the verified startup owner can delete.
+      allow delete: if isVerifiedStartup()
+        && resource.data.startupId
+          == request.auth.uid;
+    }
+
+    // APPLICATIONS
+
+    match /applications/{applicationId} {
+
+      // Student reads their own application.
+      // Verified startup reads applications sent to it.
+      // Admin can also read applications.
+      allow read: if isSignedIn()
+        && (
+          resource.data.studentId
+            == request.auth.uid
+
+          ||
+
+          (
+            isVerifiedStartup()
+            && resource.data.startupId
+              == request.auth.uid
+          )
+
+          ||
+
+          isAdmin()
+        );
+
+      // Only students can submit applications.
+      allow create: if isStudent()
+        && request.resource.data.studentId
+          == request.auth.uid
+
+        && applicationId
+          == request.auth.uid
+          + '_'
+          + request.resource.data.opportunityId
+
+        && request.resource.data.status
+          == 'Submitted'
+
+        && exists(
+          /databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)
+        )
+
+        && get(
+          /databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)
+        ).data.isActive == true
+
+        && request.resource.data.startupId
+          == get(
+            /databases/$(database)/documents/opportunities/$(request.resource.data.opportunityId)
+          ).data.startupId;
+
+      // Verified startup can only change application status.
+      allow update: if isVerifiedStartup()
+        && resource.data.startupId
+          == request.auth.uid
+
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'status',
+            'updatedAt'
+          ])
+
+        && request.resource.data.status in [
+          'Submitted',
+          'Under Review',
+          'Interview',
+          'Accepted',
+          'Rejected'
+        ];
+
+      allow delete: if false;
+    }
+
+  
+    // NOTIFICATIONS
+  
+
+    match /notifications/{notificationId} {
+
+      // A verified startup creates a notification
+      // after updating an application status.
+      allow create: if isVerifiedStartup()
+        && request.resource.data.createdBy
+          == request.auth.uid
+        && request.resource.data.type
+          == 'applicationStatus'
+        && request.resource.data.isRead == false
+
+        && exists(
+          /databases/$(database)/documents/applications/$(request.resource.data.applicationId)
+        )
+
+        && get(
+          /databases/$(database)/documents/applications/$(request.resource.data.applicationId)
+        ).data.startupId
+          == request.auth.uid
+
+        && get(
+          /databases/$(database)/documents/applications/$(request.resource.data.applicationId)
+        ).data.studentId
+          == request.resource.data.userId;
+
+      // User reads their own notifications.
+      allow read: if isSignedIn()
+        && resource.data.userId
+          == request.auth.uid;
+
+      // User can only change notification read status.
+      allow update: if isSignedIn()
+        && resource.data.userId
+          == request.auth.uid
+
+        && request.resource.data.userId
+          == resource.data.userId
+
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'isRead',
+            'updatedAt'
+          ]);
+
+      // User can delete their own notification.
+      allow delete: if isSignedIn()
+        && resource.data.userId
+          == request.auth.uid;
+    }
+
+    // BLOCK ALL OTHER COLLECTIONS
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

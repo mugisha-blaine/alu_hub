@@ -7,10 +7,8 @@ Students can discover opportunities, save them, apply, and track their applicati
 ## Project Information
 
 - **Project Name:** ALU Hub
-- **Project Type:** Individual Flutter Final Project
-- **Student Name:** Liliane Dushimimana
+- **Student Name:** NIWENIZEYE BLAINE
 - **Institution:** African Leadership University
-- **Course Deliverable:** Formative Assignment 2
 - **Main Technologies:** Flutter, Dart, Firebase, Riverpod
 
 ## Problem
@@ -103,7 +101,6 @@ The Admin can:
 
 The project uses a layered structure.
 
-```text
 Flutter Screens
       ↓
 Riverpod Providers
@@ -111,3 +108,19 @@ Riverpod Providers
 Repositories
       ↓
 Firebase Authentication and Cloud Firestore
+
+## Folder Structure
+lib/
+├── core/
+│   ├── constants/
+│   └── theme/
+├── features/
+│   ├── screens/
+│   └── widgets/
+├── models/
+├── navigation/
+├── providers/
+├── repositories/
+├── services/
+├── firebase_options.dart
+└── main.dart
