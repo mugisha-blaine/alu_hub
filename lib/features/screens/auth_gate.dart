@@ -53,12 +53,12 @@ class AuthGate extends StatelessWidget {
             }
 
             final userData = userDocument.data() ?? <String, dynamic>{};
-
+            /* 
             final userName =
                 userData?['name']?.toString() ??
                 user.displayName ??
                 user.email?.split('@').first ??
-                'ALU User';
+                'ALU User'; */
 
             final role = userData['role']?.toString() ?? 'Student';
 
@@ -66,6 +66,11 @@ class AuthGate extends StatelessWidget {
                 userData['startupName']?.toString() ??
                 userData['name']?.toString() ??
                 'Startup';
+
+            final studentName =
+                userData['name']?.toString() ??
+                user.email?.split('@').first ??
+                'Student';
 
             if (role == 'Admin') {
               return const AdminDashboardScreen();
@@ -75,12 +80,14 @@ class AuthGate extends StatelessWidget {
               return MainNavigation(
                 userRole: UserRole.startup,
                 startupName: startupName,
+                studentName: '',
               );
             }
 
-            return const MainNavigation(
+            return MainNavigation(
               userRole: UserRole.student,
               startupName: '',
+              studentName: studentName,
             );
           },
         );

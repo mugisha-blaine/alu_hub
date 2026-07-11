@@ -262,14 +262,14 @@ class _StartupProfileScreenState extends State<StartupProfileScreen> {
                 border: Border.all(
                   color: isDarkMode
                       ? Colors.white10
-                      : Colors.black.withOpacity(0.05),
+                      : Colors.black.withValues(alpha: 0.05),
                 ),
               ),
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 48,
-                    backgroundColor: AppColors.primaryBlue.withOpacity(0.12),
+                    backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.12),
                     child: Text(
                       startupNameController.text.isNotEmpty
                           ? startupNameController.text[0].toUpperCase()
@@ -312,7 +312,7 @@ class _StartupProfileScreenState extends State<StartupProfileScreen> {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryBlue.withOpacity(0.12),
+                      color: AppColors.primaryBlue.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(

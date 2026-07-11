@@ -15,11 +15,13 @@ enum UserRole { student, startup }
 class MainNavigation extends StatefulWidget {
   final UserRole userRole;
   final String startupName;
+  final String studentName;
 
   const MainNavigation({
     super.key,
     required this.userRole,
     required this.startupName,
+    required this.studentName,
   });
 
   @override
@@ -38,7 +40,7 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     final studentPages = [
-      const HomeScreen(userName: 'Student', role: 'Student'),
+      HomeScreen(userName: widget.studentName, role: 'Student'),
       const ExploreScreen(),
       const MyApplicationsScreen(),
       StudentProfileScreen(),
@@ -57,7 +59,7 @@ class _MainNavigationState extends State<MainNavigation> {
       body: IndexedStack(index: selectedIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
-        indicatorColor: AppColors.primaryBlue.withOpacity(0.14),
+        indicatorColor: AppColors.primaryBlue.withValues(alpha: 0.14),
         onDestinationSelected: (index) {
           setState(() {
             selectedIndex = index;

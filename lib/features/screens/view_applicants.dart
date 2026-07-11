@@ -178,7 +178,7 @@ class _ApplicantCard extends StatelessWidget {
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.06),
+          color: isDarkMode ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
         ),
       ),
       child: Column(
@@ -189,7 +189,7 @@ class _ApplicantCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 27,
-                backgroundColor: AppColors.primaryBlue.withOpacity(0.12),
+                backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.12),
                 child: Text(
                   application.studentName.isNotEmpty
                       ? application.studentName[0].toUpperCase()
@@ -288,7 +288,7 @@ class _ApplicantCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: currentStatusColor.withOpacity(0.12),
+              color: currentStatusColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(

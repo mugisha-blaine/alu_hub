@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/notification.dart';
 
@@ -38,7 +39,7 @@ class NotificationRepository {
         .doc(notificationId)
         .update({'isRead': true, 'updatedAt': FieldValue.serverTimestamp()})
         .catchError((error) {
-          print('Unable to mark notification as read: $error');
+          debugPrint('Unable to mark notification as read: $error');
         });
   }
 
@@ -49,7 +50,7 @@ class NotificationRepository {
         .get()
         .then((snapshot) {
           if (snapshot.docs.isEmpty) {
-            print('There are no unread notifications.');
+            debugPrint('There are no unread notifications.');
           } else {
             final batch = firestore.batch();
 
@@ -63,21 +64,21 @@ class NotificationRepository {
             batch
                 .commit()
                 .then((_) {
-                  print('All notifications marked as read.');
+                  debugPrint('All notifications marked as read.');
                 })
                 .catchError((error) {
-                  print('Unable to mark notifications as read: $error');
+                  debugPrint('Unable to mark notifications as read: $error');
                 });
           }
         })
         .catchError((error) {
-          print('Unable to load notifications: $error');
+          debugPrint('Unable to load notifications: $error');
         });
   }
 
   void deleteNotification(String notificationId) {
     notificationsCollection.doc(notificationId).delete().catchError((error) {
-      print('Unable to delete notification: $error');
+      debugPrint('Unable to delete notification: $error');
     });
   }
 }

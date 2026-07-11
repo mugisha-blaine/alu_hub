@@ -55,7 +55,7 @@ class OpportunityCard extends StatelessWidget {
                     height: 52,
                     width: 52,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryBlue.withOpacity(0.12),
+                      color: AppColors.primaryBlue.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: const Icon(
@@ -192,7 +192,7 @@ class _InformationChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: AppColors.primaryBlue.withOpacity(0.08),
+        color: AppColors.primaryBlue.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

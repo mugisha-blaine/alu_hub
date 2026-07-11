@@ -142,7 +142,7 @@ class _ApplicationCard extends StatelessWidget {
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDarkMode ? Colors.white10 : Colors.black.withOpacity(0.06),
+          color: isDarkMode ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
         ),
       ),
       child: Column(
@@ -155,7 +155,7 @@ class _ApplicationCard extends StatelessWidget {
                 height: 54,
                 width: 54,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.12),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
@@ -215,7 +215,7 @@ class _ApplicationCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.12),
+              color: statusColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(

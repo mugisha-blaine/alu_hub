@@ -61,7 +61,7 @@ class OpportunityDetailsScreen extends StatelessWidget {
                               height: 65,
                               width: 65,
                               decoration: BoxDecoration(
-                                color: AppColors.primaryBlue.withOpacity(0.12),
+                                color: AppColors.primaryBlue.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(18),
                               ),
                               child: const Icon(
@@ -174,7 +174,7 @@ class OpportunityDetailsScreen extends StatelessWidget {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryBlue.withOpacity(0.09),
+                            color: AppColors.primaryBlue.withValues(alpha: 0.09),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -227,7 +227,7 @@ class OpportunityDetailsScreen extends StatelessWidget {
                 color: cardColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 14,
                     offset: const Offset(0, -4),
                   ),
@@ -305,7 +305,7 @@ class _DetailChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.primaryBlue.withOpacity(0.09),
+        color: AppColors.primaryBlue.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

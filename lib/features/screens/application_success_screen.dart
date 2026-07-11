@@ -31,7 +31,7 @@ class ApplicationSuccessScreen extends StatelessWidget {
                 height: 115,
                 width: 115,
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.12),
+                  color: Colors.green.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(

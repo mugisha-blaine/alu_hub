@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 
 final authStateProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
@@ -60,7 +61,7 @@ class BookmarkRepository {
 
     if (isCurrentlyBookmarked) {
       bookmarkDocument.delete().catchError((error) {
-        print('Unable to remove bookmark: $error');
+        debugPrint('Unable to remove bookmark: $error');
       });
     } else {
       bookmarkDocument
@@ -69,7 +70,7 @@ class BookmarkRepository {
             'createdAt': FieldValue.serverTimestamp(),
           })
           .catchError((error) {
-            print('Unable to save bookmark: $error');
+            debugPrint('Unable to save bookmark: $error');
           });
     }
   }

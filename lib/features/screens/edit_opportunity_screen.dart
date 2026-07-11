@@ -199,7 +199,7 @@ class _EditOpportunityScreenState extends ConsumerState<EditOpportunityScreen> {
               const _FieldLabel('Category'),
 
               DropdownButtonFormField<String>(
-                value: selectedCategory,
+                initialValue: selectedCategory,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.category_outlined),
                 ),
@@ -227,7 +227,7 @@ class _EditOpportunityScreenState extends ConsumerState<EditOpportunityScreen> {
               const _FieldLabel('Work arrangement'),
 
               DropdownButtonFormField<String>(
-                value: selectedWorkType,
+                initialValue: selectedWorkType,
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.schedule_outlined),
                 ),

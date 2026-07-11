@@ -239,14 +239,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                 border: Border.all(
                   color: isDarkMode
                       ? Colors.white10
-                      : Colors.black.withOpacity(0.05),
+                      : Colors.black.withValues(alpha: 0.05),
                 ),
               ),
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 48,
-                    backgroundColor: AppColors.primaryBlue.withOpacity(0.12),
+                    backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.12),
                     child: Text(
                       nameController.text.isNotEmpty
                           ? nameController.text[0].toUpperCase()
@@ -289,7 +289,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryBlue.withOpacity(0.12),
+                      color: AppColors.primaryBlue.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(

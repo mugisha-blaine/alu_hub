@@ -230,7 +230,7 @@ class _ManageOpportunityCard extends StatelessWidget {
                 height: 52,
                 width: 52,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withOpacity(0.10),
+                  color: AppColors.primaryBlue.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
@@ -300,7 +300,7 @@ class _ManageOpportunityCard extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
+                  color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(

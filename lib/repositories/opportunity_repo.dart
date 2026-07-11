@@ -61,7 +61,7 @@ class OpportunityRepository {
     final user = auth.currentUser;
 
     if (user == null) {
-      return Future.error('You must sign in before posting an opportunity.');
+      return Future.error('You must sign in first.');
     }
 
     return firestore.collection('users').doc(user.uid).get().then((profile) {
@@ -83,15 +83,17 @@ class OpportunityRepository {
 
       final savedStartupName = data['startupName']?.toString().trim() ?? '';
 
-      return opportunitiesCollection.add({
-        ...opportunity.toFirestore(),
-        'startupId': user.uid,
-        'startupName': savedStartupName.isNotEmpty
-            ? savedStartupName
-            : opportunity.startupName,
-        'isVerified': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      return opportunitiesCollection
+          .add({
+            ...opportunity.toFirestore(),
+            'startupId': user.uid,
+            'startupName': savedStartupName.isNotEmpty
+                ? savedStartupName
+                : opportunity.startupName,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          })
+          .then((_) {});
     });
   }
 

@@ -1,30 +1,56 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:alu_hub/main.dart';
+import 'package:alu_hub/features/screens/login_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('ALU Hub Login Screen Tests', () {
+    testWidgets('Login screen shows the required information', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      expect(find.text('Welcome Back'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      expect(
+        find.text('Sign in to discover ALU startup opportunities.'),
+        findsOneWidget,
+      );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
+
+      expect(find.text('Password'), findsOneWidget);
+
+      expect(find.byType(TextFormField), findsNWidgets(2));
+
+      expect(find.text('Forgot password?'), findsOneWidget);
+
+      expect(find.text('Create account'), findsOneWidget);
+    });
+
+    testWidgets('Login form shows errors when fields are empty', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+
+      final signInButton = find.widgetWithText(FilledButton, 'Sign In');
+
+      expect(signInButton, findsOneWidget);
+
+      await tester.tap(signInButton);
+      await tester.pump();
+
+      expect(find.text('Please enter your email address'), findsOneWidget);
+
+      expect(find.text('Please enter your password'), findsOneWidget);
+    });
+
+    testWidgets('Password visibility button is available', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+    });
   });
 }

@@ -205,7 +205,7 @@ class _NotificationCard extends StatelessWidget {
         ? isDarkMode
               ? AppColors.darkCard
               : Colors.white
-        : AppColors.primaryBlue.withOpacity(isDarkMode ? 0.18 : 0.07);
+        : AppColors.primaryBlue.withValues(alpha: isDarkMode ? 0.18 : 0.07);
 
     final textColor = isDarkMode ? Colors.white : AppColors.darkText;
 
@@ -242,8 +242,8 @@ class _NotificationCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: notification.isRead
-                    ? Colors.black.withOpacity(0.05)
-                    : notificationColor.withOpacity(0.25),
+                    ? Colors.black.withValues(alpha: 0.05)
+                    : notificationColor.withValues(alpha: 0.25),
               ),
             ),
             child: Row(
@@ -253,7 +253,7 @@ class _NotificationCard extends StatelessWidget {
                   height: 49,
                   width: 49,
                   decoration: BoxDecoration(
-                    color: notificationColor.withOpacity(0.12),
+                    color: notificationColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Icon(getNotificationIcon(), color: notificationColor),
